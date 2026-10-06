@@ -404,16 +404,25 @@ Coordination is expressed by reactions and authorized views. Holding and Bookmar
 
 ### Figure 1: Leave for later
 
-![Show the recipient username, a text/link composer, and **Leave for later**. After submission, show the original timestamp and **Saved for later** or **Available**, with a link to sent items. The recipient may be prefilled when opening the composer from a friend's message. Do not include an urgent toggle or expose the recipient's readiness.](image-3.png)
+![Alice composing and leaving a message for Bob](image-3.png)
+
+**Alice's view, before and after sending to Bob.** **Leave for later** captures the message immediately. **Saved for later** means it is waiting for Bob's receiving window; **Available** means Bob can view it, without implying that he has read it. The original sending timestamp is preserved.
 
 ### Figure 2: Catch up now
 
-![Show **Catch up now**, an explanation that the window lasts 15 minutes, and a link to previously received and saved items. During reception, show the expiry/countdown and **End catch-up**. Previously received content can be opened without starting a new window. While reception is closed, do not show a pending-message count or badge.](image-4.png)
+![Bob's inbox before starting a receiving window](image-4.png)
+
+**Bob's view before catch-up.** Previously released messages remain visible. **Catch up now** opens a 15-minute receiving window for messages from all friends. Pending messages produce no previews, badges, or counts before Bob starts the window.
 
 ### Figure 3: Catch-up inbox and saved items
 
-![Show released messages grouped by friend, preserving their original timestamps.](image-5.png)
-![Include **Send to this friend** and **Keep for later**. Show a **Saved** view with **Open message** and **Remove from saved**. Do not expose pending message text, a read receipt, or a burst of notification banners.](image-6.png)
+![Bob's inbox during an active catch-up window](image-5.png)
+
+**Bob's view during catch-up.** Messages become available together, grouped by friend, with their original timestamps. The red indicators identify newly released messages during this window, rather than read receipts. The countdown shows the time remaining. **End catch-up** or expiry stops further releases; messages already released remain visible.
+
+![Bob bookmarking Alice's received message and viewing his Saved list](image-6.png)
+
+**Bob's received message and private Saved list.** **Keep for later** bookmarks a message without removing it from the conversation. Selecting a saved entry opens the original message. The Saved count indicates bookmarks, not unread messages. The full view also offers **Remove from saved**; sending a response uses the ordinary composer for the same friend.
 
 ## User journey
 
