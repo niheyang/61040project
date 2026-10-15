@@ -2,18 +2,149 @@
 
 **Share when you think of it. Catch up when you choose.**
 
-MIT 6.1040 · Fall 2026 · Personal Project · [P1: Design](https://61040.github.io/fa26/assignments/personal-project/#p1-design)
+MIT 6.1040 · Fall 2026 · Personal Project · [P1: Design](https://61040.github.io/fa26/assignments/personal-project/#p1-design) · [P2: MVP](https://61040.github.io/fa26/assignments/p2/)
 
 Catchup is a private space for existing friends to exchange non-urgent messages and links. Senders capture a share immediately; recipients choose when pending shares become available and can save messages they want to revisit. The proposed benefit is preserving wanted exchanges while letting recipients choose when to engage. Its usefulness compared with existing messaging tools remains to be tested.
 
 ## Contents
 
+- [Run the P2 implementation](#run-the-p2-implementation)
+- [Try the core journey](#try-the-core-journey)
+- [MVP scope](#mvp-scope)
+- [Understand the implementation](#understand-the-implementation)
+- [Validation and P2 handoff](#validation-and-p2-handoff)
 - [Problem framing and stakeholders](#problem-framing-and-stakeholders)
 - [Application pitch](#application-pitch)
 - [Concept design](#concept-design)
 - [UI sketches](#ui-sketches)
 - [User journey](#user-journey)
 - [Evaluation plan](#evaluation-plan)
+
+## Run the P2 implementation
+
+The local app uses **Vue** for the browser interface, **Bun and sync-engine 1.1.0** for the backend, and **MongoDB** for persistent data. A terminal is where you enter the commands below. Keep the terminal running while using the app.
+
+Prerequisites are Bun and a running Podman machine with a Compose provider, following the [course MongoDB setup guide](https://61040.github.io/fa26/resources/mongodb-setup/). This computer already has these dependencies and the project's local configuration installed.
+
+From Terminal:
+
+```sh
+cd /Users/heyangni/Desktop/6.1040/61040project
+bun run dev
+```
+
+Open **[Catchup at http://127.0.0.1:8080](http://127.0.0.1:8080)**. The command first starts MongoDB and waits for a successful connection, then runs the backend and frontend together. If Podman reports that its machine is stopped, run `podman machine start`, then retry `bun run dev`.
+
+For a fresh checkout, run these once from the project folder before starting:
+
+```sh
+bun install
+cp .env.example .env
+bun run dev
+```
+
+Copy the example only when `.env` does not already exist. It configures the local database connection. The `.env` file is ignored by Git.
+
+| Component | Address / location | What it does |
+| --- | --- | --- |
+| Vue frontend | `http://127.0.0.1:8080` | Forms, inbox, sent shares, and saved messages |
+| Bun backend | `http://127.0.0.1:3000` | Authentication, authorized requests, and reactions |
+| MongoDB | `127.0.0.1:27018`, database `catchup` | Accounts, messages, delivery state, windows, and bookmarks |
+
+The frontend forwards `/api` requests to the backend. MongoDB uses port 27018 so it can run alongside the earlier practice database on port 27017. Its named container volume preserves data between restarts.
+
+Press **Control-C** in the terminal to stop the development servers. `bun run db:down` stops MongoDB while retaining its data volume. To check the connection separately, use `bun run db:check`. `bun run db:logs` shows database startup logs.
+
+## Try the core journey
+
+Use two browser tabs or windows and create two accounts, such as Alice and Bob. Usernames use 3–24 letters, numbers, or underscores and ignore case. Passwords use 8–128 characters. Exchange usernames to send shares.
+
+For trying this computer's existing sample data, the local demo accounts are `alice_demo` and `bob_demo`, both with password `catchup-demo-2026`. Bob has received three sample shares and saved one. These accounts are demonstration fixtures.
+
+1. **Alice captures a share.** Send a short message or link to Bob. Alice's Sent tab shows **Saved for later** while Bob's reception is closed.
+2. **Bob signs in.** His inbox reveals no pending message content, badge, or waiting count. Signing in does not open reception.
+3. **Bob selects Catch up now.** A 15-minute window opens. Alice's message appears with its original creation time, grouped under her username.
+4. **Alice sends another share.** During Bob's open window, it becomes **Available** and appears automatically. Available describes access; it is not a read receipt.
+5. **Bob selects Keep for later.** The message appears in his private Saved tab with its full original text, links, sender, and timestamp. To respond, enter Alice's username in the ordinary composer.
+6. **Bob ends catch-up.** Released messages and bookmarks remain accessible. Another new share from Alice waits until Bob opens a later window.
+7. **Bob removes a bookmark.** It disappears from Saved while its original message remains in the inbox.
+
+You must sign in again after reloading because the Vue app keeps credentials only in memory. Accounts and content remain in MongoDB. An existing receiving window also persists: signing out or closing a tab does not end it. Use **End catch-up** or let its server-side deadline pass.
+
+## MVP scope
+
+This MVP demonstrates three product behaviors: capture a share, choose when to receive it, and keep a received message for later. Accounts and persistent storage support that private exchange. Inbox, Sent, and Saved show the corresponding states.
+
+The interface omits the duplicate original-message dialog, reply shortcut, saved-count badge, routine manual refresh control, and decorative onboarding sections. Saved displays the complete original message directly. Replies use the same composer as new shares, and messages refresh automatically. The timer, end control, sender delivery status, validation, and error retry remain because they explain or protect the core behavior.
+
+## Understand the implementation
+
+### Step 1: Connect a persistent database
+
+[`compose.yaml`](compose.yaml) runs MongoDB locally, and [`src/db.ts`](src/db.ts) reads the connection address from `.env`. [`scripts/check-db.ts`](scripts/check-db.ts) sends a database ping. This confirms the app can store data before starting its web servers.
+
+### Step 2: Give each concept its own state
+
+The five independent concept implementations live in [`src/concepts/`](src/concepts/), with strict specifications in [`design/concepts/`](design/concepts/). Each receives a MongoDB database and owns separate collections. Concepts do not import or call one another.
+
+| Concept | Responsibility |
+| --- | --- |
+| PasswordAuthenticating | Register accounts, store Argon2id password hashes, and return a stable authenticated user identity |
+| Messaging | Preserve message text, sender, recipient, and original creation time |
+| Holding | Keep opaque message handles pending or released; repeated enqueue/release is harmless |
+| Receptivity | Manage explicit 15-minute receiving windows and safely replace or close them |
+| Bookmarking | Keep a private, idempotent list of opaque message handles |
+
+Unique database indexes prevent duplicate usernames, holding entries, and bookmarks. Receptivity checks the trusted server clock whenever readiness is queried; release stops at the deadline even if the cleanup timer runs late. Old close/expiry handles cannot end a replacement window.
+
+### Step 3: Connect the concepts with reactions
+
+[`src/compositions/Catchup.ts`](src/compositions/Catchup.ts) expresses the application rules in the course's sync-engine DSL:
+
+- A message creation triggers enqueueing in Holding.
+- Opening reception triggers release of pending items.
+- Enqueueing during an open window triggers release of that item.
+- A received message is returned only when it belongs to the authenticated recipient and has been released.
+- Saving requires the same ownership and release checks.
+
+Every protected endpoint authenticates its credentials. The acting identity comes from authentication, and request validation rejects additional fields such as a spoofed sender. Dashboard responses include authorized incoming messages, the user's own sent records, their private saved list, and their own active window. They include no pending incoming count or previews.
+
+[`src/server.ts`](src/server.ts) serializes complete request flows in this local backend process and waits for reactions to finish. This prevents a close operation from slipping between a release's readiness check and its action. Multiple backend replicas would require shared coordination; the current MVP runs one backend process.
+
+[`design/types.md`](design/types.md) binds opaque concept types; [`design/compositions/Catchup.md`](design/compositions/Catchup.md) explains the authored composition. [`src/assembly.ts`](src/assembly.ts) assembles the concepts and composition. [`generated/wire.ts`](generated/wire.ts) is generated from that assembly and describes the API's inputs and outputs. Regenerate it after changing the application contract with `bun run generate`.
+
+### Step 4: Display the state with Vue
+
+[`web/src/App.vue`](web/src/App.vue) contains the Composition API interface. [`web/src/MessageCard.vue`](web/src/MessageCard.vue) renders reusable message cards, and [`web/src/api.ts`](web/src/api.ts) calls the typed generated API.
+
+`ref()` stores changing values such as the selected tab and dashboard response. `computed()` derives the countdown, friend groups, and saved-message lookup from those values. Stable message IDs used as Vue `:key` values keep rendered cards associated with the correct message. The dashboard refreshes every three seconds while the tab is visible; refreshing never starts a receiving window.
+
+### Step 5: Check the behavior
+
+From the project folder:
+
+```sh
+bun run check:design
+bun run check
+bun test
+bun run build
+```
+
+`check:design` checks the authored specification format. `check` checks concept source, application diagnostics, generated artifacts, and backend/Vue types. `bun test` checks behavior using isolated temporary MongoDB databases; it does not clear the application's database. `build` produces frontend files in `web/dist` for later deployment work.
+
+## Validation and P2 handoff
+
+The implementation passes **18 automated tests with 342 assertions**, the authored design check, generated-artifact check, backend/Vue type checks, and the production frontend build. Tests cover persistence, password failures, the complete user journey, private bookmarks, direct-access authorization, malformed/spoofed requests, simultaneous send/open operations, exact expiry, and stale window handles.
+
+The simplified interface passes the live browser journey: registration, held-message invisibility, release on opening, automatic arrivals during reception, full original content in Saved, closing, removal without deleting the original, and sign-in persistence. Desktop and 390-pixel mobile layouts were checked with no horizontal overflow or browser console errors. The countdown starts at 15:00.
+
+![Simplified Catchup MVP with full original content in Saved](p2-preview.jpg)
+
+The engine reports conservative endpoint-fallback and former-ordering advisories. Each endpoint binds authentication outputs, which its static fallback check does not prove; the tests exercise both successful requests and refusals. Array queries use deterministic database ordering, and Vue sorts the displayed messages explicitly. These advisories were reviewed rather than suppressed.
+
+This README preserves the historical P1 design below. The P2 implementation uses separate Inbox, Sent, and Saved views and one composer. The P1 sketches include an original-message dialog and reply shortcut; the smaller MVP displays the full message in Saved and uses the ordinary composer for responses. Search, new-message highlighting, and a combined conversation-history page are outside this local MVP.
+
+For the [P2 handoff](https://61040.github.io/fa26/assignments/p2/), record the core journey above with your own narration and add your own development/reflection notes required by the assignment. The code, formal specifications, implementation explanation, and validation evidence are ready to use; this README does not claim an observed user trial or a completed personal reflection.
 
 ## Problem framing and stakeholders
 
@@ -423,16 +554,6 @@ Coordination is expressed by reactions and authorized views. Holding and Bookmar
 ![Bob bookmarking Alice's received message and viewing his Saved list](image-6.png)
 
 **Bob's received message and private Saved list.** **Keep for later** bookmarks a message without removing it from the conversation. Selecting a saved entry opens the original message. The Saved count indicates bookmarks, not unread messages. The full view also offers **Remove from saved**; sending a response uses the ordinary composer for the same friend.
-
-## User journey
-
-*Illustrative journey, not an observed trial result.*
-
-Bob is working on a class assignment and does not want new casual exchanges to demand his attention. His friend Alice finds an article she thinks he will enjoy and leaves it in Catchup. It is saved without being presented to Bob. Later, Bob signs in to find a previously saved link; doing that alone does not release Alice's new share. Once he finishes working, he chooses **Catch up now** in [Figure 2](#figure-2-catch-up-now).
-
-Bob's pending shares appear together in the [catch-up inbox in Figure 3](#figure-3-catch-up-inbox-and-saved-items). Alice's article retains its original sending time. Bob enjoys another short update without needing to answer it. He wants more time for the article, so he selects **Keep for later**. He then ends the receiving window before starting another task. Messages already released remain accessible; new shares will wait for a later window.
-
-The next day, Bob opens **Saved**, rereads Alice's article, and chooses **Send to this friend**. The [composer in Figure 1](#figure-1-leave-for-later) opens with Alice as the recipient, and Bob sends his thoughts using **Leave for later**. Alice's receiving window is closed, so his message is saved for her next catch-up period. Bob removes the article from his saved list when he no longer needs to revisit it. He has captured his response and retained control over when to receive more shares, without assuming Alice is available at the same time.
 
 ## Evaluation plan
 
