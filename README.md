@@ -9,7 +9,7 @@ Catchup is a private space for existing friends to exchange non-urgent messages,
 ## P3 deliverables
 
 - [Updated user journey](user_journey.md)
-- [demo](P3demo.mov)
+- [demo](https://youtu.be/V-WbEcGa3fw)
 - [Visual design study](visual_design_study.pptx)
 - [catch-up.mit-sdg.dev](https://catch-up.mit-sdg.dev/)
 - [P3 automated validation results](docs/validation/README.md) — 89 passing tests, including 45 drawing tests, with saved output and limits
