@@ -1,72 +1,214 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
-import MessageCard from "./MessageCard.vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import ChatBubble from "./ChatMessage.vue";
+import CatchupTimer from "./CatchupTimer.vue";
+import DoodlePad from "./DoodlePad.vue";
+import SearchHighlight from "./SearchHighlight.vue";
+import ToastNotice from "./ToastNotice.vue";
+import { buildConversations } from "./conversations.ts";
+import { getNewChatUsername, getSearchTarget, searchConversations } from "./search.ts";
+import { useTheme } from "./theme.ts";
 import { api, describeError, isApiError, type Credentials, type Dashboard, type MessageRow } from "./api.ts";
+import type { Drawing } from "../../src/shared/drawing.ts";
 
-type Tab = "inbox" | "sent" | "saved";
-const tab = ref<Tab>("inbox");
+const { theme, toggleTheme } = useTheme();
 const authMode = ref<"login" | "register">("login");
 const authUsername = ref("");
 const authPassword = ref("");
 const credentials = ref<Credentials | null>(null);
 const dashboard = ref<Dashboard>({ incoming: [], sent: [], saved: [], windows: [] });
-const recipient = ref("");
-const text = ref("");
+const selectedUsername = ref<string | null>(null);
+const draftUsernames = ref<string[]>([]);
+const messageDrafts = ref<Record<string, string>>(Object.create(null));
+const drawingDrafts = ref<Record<string, Drawing | null>>(Object.create(null));
+const composerModes = ref<Record<string, "text" | "draw">>(Object.create(null));
+const chatSearch = ref("");
+const chatError = ref("");
+const checkingUsername = ref(false);
+const savedOnly = ref(false);
 const busy = ref(false);
 const loadingDashboard = ref(false);
 const error = ref("");
 const notice = ref("");
 const updatesError = ref("");
 const now = ref(Date.now());
+const threadScroll = ref<HTMLElement | null>(null);
+const messageInput = ref<HTMLTextAreaElement | null>(null);
+let jumpingToSearchResult = false;
 let sessionVersion = 0;
 let dashboardVersion = 0;
 let dashboardRequests = 0;
+let usernameLookupVersion = 0;
 let pollTimer: ReturnType<typeof setInterval> | undefined;
 let clockTimer: ReturnType<typeof setInterval> | undefined;
 
 const currentWindow = computed(() => dashboard.value.windows.find((window) => new Date(window.expiresAt).getTime() > now.value));
-const countdown = computed(() => {
-  if (!currentWindow.value) return "";
-  const seconds = Math.min(15 * 60, Math.max(0, Math.ceil((new Date(currentWindow.value.expiresAt).getTime() - now.value) / 1000)));
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-});
 const savedIds = computed(() => new Set(dashboard.value.saved.map((message) => message.message)));
-const incomingGroups = computed(() => {
-  const groups = new Map<string, { user: string; username: string; messages: MessageRow[] }>();
-  for (const message of dashboard.value.incoming) {
-    let group = groups.get(message.sender);
-    if (!group) {
-      group = { user: message.sender, username: message.senderUsername, messages: [] };
-      groups.set(message.sender, group);
-    }
-    group.messages.push(message);
-  }
-  for (const group of groups.values()) group.messages.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  return [...groups.values()].sort((a, b) => a.username.localeCompare(b.username));
+// The server's dashboard already excludes held incoming messages. Building
+// chats from these rows cannot reveal another friend's pending share.
+const conversations = computed(() => buildConversations(dashboard.value, draftUsernames.value));
+const filteredConversations = computed(() => searchConversations(conversations.value, chatSearch.value));
+const searchTarget = computed(() => getSearchTarget(filteredConversations.value, chatSearch.value));
+const newChatCandidate = computed(() => getNewChatUsername(conversations.value, chatSearch.value, credentials.value?.username ?? ""));
+const searchHint = computed(() => {
+  if (checkingUsername.value) return "Checking username…";
+  if (!chatSearch.value.trim()) return "Search names or messages. Enter a username to start a chat.";
+  if (searchTarget.value) return `Enter to open @${searchTarget.value.username}.`;
+  return "Click a result to open it. Enter to start a chat by username.";
 });
-const sentMessages = computed(() => [...dashboard.value.sent].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
-const savedMessages = computed(() => [...dashboard.value.saved].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
-const canSend = computed(() => recipient.value.trim().length > 0 && text.value.trim().length > 0 && text.value.length <= 2000 && !busy.value);
+const selectedConversation = computed(() => conversations.value.find((conversation) => conversation.username === selectedUsername.value) ?? null);
+const threadMessages = computed(() => {
+  const messages = selectedConversation.value?.messages ?? [];
+  return savedOnly.value ? messages.filter((message) => message.direction === "incoming" && savedIds.value.has(message.message)) : messages;
+});
+const activeDraft = computed({
+  get: () => selectedUsername.value ? messageDrafts.value[selectedUsername.value] ?? "" : "",
+  set: (value: string) => { if (selectedUsername.value) messageDrafts.value[selectedUsername.value] = value; },
+});
+const composerMode = computed({
+  get: () => selectedUsername.value ? composerModes.value[selectedUsername.value] ?? "text" : "text",
+  set: (value: "text" | "draw") => { if (selectedUsername.value) composerModes.value[selectedUsername.value] = value; },
+});
+const activeDrawing = computed({
+  get: () => selectedUsername.value ? drawingDrafts.value[selectedUsername.value] ?? null : null,
+  set: (value: Drawing | null) => { if (selectedUsername.value) drawingDrafts.value[selectedUsername.value] = value; },
+});
+const canSend = computed(() => Boolean(selectedConversation.value) && !busy.value && (
+  composerMode.value === "draw" ? activeDrawing.value !== null : activeDraft.value.trim().length > 0 && activeDraft.value.length <= 2000
+));
+
+function nearBottom() {
+  const area = threadScroll.value;
+  return !area || area.scrollHeight - area.scrollTop - area.clientHeight < 100;
+}
+
+async function scrollToLatest() {
+  await nextTick();
+  const area = threadScroll.value;
+  if (area) area.scrollTop = area.scrollHeight;
+}
+
+// Keep reading position when a poll adds messages above the visible area.
+// Selecting a friend and sending explicitly move to the latest message.
+watch(() => threadMessages.value.map((message) => message.message).join("|"), () => {
+  if (!jumpingToSearchResult && nearBottom()) void scrollToLatest();
+});
+
+async function selectConversation(username: string, matchingMessage?: string) {
+  cancelUsernameCheck();
+  jumpingToSearchResult = Boolean(matchingMessage);
+  selectedUsername.value = username;
+  savedOnly.value = false;
+  error.value = "";
+  if (matchingMessage) {
+    await nextTick();
+    if (selectedUsername.value === username) {
+      document.getElementById(`message-${matchingMessage}`)?.scrollIntoView({ block: "center" });
+    }
+    jumpingToSearchResult = false;
+  } else {
+    void scrollToLatest();
+  }
+}
+
+function cancelUsernameCheck() {
+  usernameLookupVersion += 1;
+  checkingUsername.value = false;
+}
+
+async function openChatSearch() {
+  if (!credentials.value || busy.value || checkingUsername.value) return;
+  if (!chatSearch.value.trim()) return;
+  chatError.value = "";
+  if (searchTarget.value) {
+    const target = searchTarget.value;
+    await selectConversation(target.username, target.matchCount ? target.previewMessage?.message : undefined);
+    return;
+  }
+  await startChatWithUsername();
+}
+
+async function startChatWithUsername() {
+  if (!credentials.value || busy.value || checkingUsername.value) return;
+  chatError.value = "";
+  const username = chatSearch.value.trim().toLowerCase().replace(/^@/, "");
+  if (!/^[a-z0-9_]{3,24}$/.test(username)) {
+    chatError.value = "Use a username with 3–24 letters, numbers, or underscores.";
+    return;
+  }
+  if (username === credentials.value?.username) {
+    chatError.value = "Choose a friend's username. You can't chat with yourself.";
+    return;
+  }
+  const requestedSession = sessionVersion;
+  const requestedLookup = ++usernameLookupVersion;
+  checkingUsername.value = true;
+  try {
+    const result = await api.catchup.checkUsername({ ...credentials.value, recipientUsername: username }, { timeoutMs: 10000 });
+    if (requestedSession !== sessionVersion || requestedLookup !== usernameLookupVersion) return;
+    if ("error" in result) {
+      chatError.value = describeError(result);
+      return;
+    }
+    if (!result.exists) {
+      chatError.value = `No account found for @${username}. Check the username and try again.`;
+      return;
+    }
+    if (!draftUsernames.value.includes(username)) draftUsernames.value.push(username);
+    chatSearch.value = "";
+    selectConversation(username);
+    void nextTick(() => messageInput.value?.focus());
+  } finally {
+    if (requestedLookup === usernameLookupVersion) checkingUsername.value = false;
+  }
+}
+
+function backToChats() {
+  cancelUsernameCheck();
+  selectedUsername.value = null;
+  savedOnly.value = false;
+  error.value = "";
+}
+
+function toggleSavedOnly() {
+  savedOnly.value = !savedOnly.value;
+  void scrollToLatest();
+}
+
+function listTime(value: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const today = new Date(now.value);
+  const sameDay = date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
+  return new Intl.DateTimeFormat(undefined, sameDay ? { hour: "numeric", minute: "2-digit" } : { month: "short", day: "numeric" }).format(date);
+}
 
 function resetDashboard() {
   dashboard.value = { incoming: [], sent: [], saved: [], windows: [] };
 }
 
 function signOut() {
+  cancelUsernameCheck();
   sessionVersion += 1;
   dashboardVersion += 1;
   credentials.value = null;
   authMode.value = "login";
   authPassword.value = "";
-  recipient.value = "";
-  text.value = "";
+  selectedUsername.value = null;
+  draftUsernames.value = [];
+  messageDrafts.value = Object.create(null);
+  drawingDrafts.value = Object.create(null);
+  composerModes.value = Object.create(null);
+  chatSearch.value = "";
+  chatError.value = "";
+  savedOnly.value = false;
   resetDashboard();
   busy.value = false;
   loadingDashboard.value = false;
   error.value = "";
   notice.value = "";
   updatesError.value = "";
-  tab.value = "inbox";
 }
 
 async function refreshDashboard(quiet = false) {
@@ -114,67 +256,85 @@ async function authenticate() {
     sessionVersion += 1;
     credentials.value = { ...input, username: result.username };
     authPassword.value = "";
-    notice.value = authMode.value === "register" ? "Account created. Share your username with a friend." : "";
+    notice.value = authMode.value === "register" ? "Account created. Start a chat with a friend's username." : "";
     await refreshDashboard();
   } finally {
     busy.value = false;
   }
 }
 
-// All mutations use one helper so the form state, error handling, and refresh
-// behave consistently. Polling never creates a receiving window.
 async function perform(action: (auth: Credentials) => Promise<unknown>, success: string, after?: () => void) {
-  if (!credentials.value || busy.value) return;
+  if (!credentials.value || busy.value) return false;
   error.value = "";
   notice.value = "";
   busy.value = true;
   const requestedSession = sessionVersion;
   try {
     const result = await action({ ...credentials.value });
-    if (requestedSession !== sessionVersion) return;
+    if (requestedSession !== sessionVersion) return false;
     if (isApiError(result)) {
       error.value = describeError(result);
-      return;
+      return false;
     }
     after?.();
     notice.value = success;
     await refreshDashboard();
+    return requestedSession === sessionVersion;
   } finally {
     if (requestedSession === sessionVersion) busy.value = false;
   }
 }
 
 async function sendMessage() {
-  if (!canSend.value) return;
-  const recipientUsername = recipient.value.trim().toLowerCase();
-  const content = text.value.trim();
-  if (recipientUsername === credentials.value?.username) {
-    error.value = "Choose a friend's username. You can't send a share to yourself.";
-    return;
-  }
-  await perform(
-    (auth) => api.catchup.send({ ...auth, recipientUsername, text: content }, { timeoutMs: 10000 }),
-    `Your share for @${recipientUsername} is captured. See its status in Sent.`,
-    () => { text.value = ""; tab.value = "sent"; },
+  if (!canSend.value || !selectedUsername.value) return;
+  const recipientUsername = selectedUsername.value;
+  const draft = messageDrafts.value[recipientUsername] ?? "";
+  const drawing = drawingDrafts.value[recipientUsername] ?? null;
+  const mode = composerMode.value;
+  const sent = await perform(
+    (auth) => mode === "draw" && drawing
+      ? api.catchup.sendDrawing({ ...auth, recipientUsername, drawing }, { timeoutMs: 10000 })
+      : api.catchup.send({ ...auth, recipientUsername, text: draft.trim() }, { timeoutMs: 10000 }),
+    "",
+    () => {
+      // Keep drafts for other friends and retain this draft if sending fails.
+      if (mode === "draw") {
+        if (drawingDrafts.value[recipientUsername] === drawing) drawingDrafts.value[recipientUsername] = null;
+      } else if (messageDrafts.value[recipientUsername] === draft) {
+        messageDrafts.value[recipientUsername] = "";
+      }
+    },
   );
+  if (sent && selectedUsername.value === recipientUsername) {
+    savedOnly.value = false;
+    await scrollToLatest();
+    if (mode === "text") messageInput.value?.focus();
+  }
+}
+
+function onComposerKeydown(event: KeyboardEvent) {
+  if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+    event.preventDefault();
+    void sendMessage();
+  }
 }
 
 async function startCatchup() {
-  await perform((auth) => api.catchup.startCatchup(auth, { timeoutMs: 10000 }), "Your receiving window is open for 15 minutes.", () => { tab.value = "inbox"; });
+  await perform((auth) => api.catchup.startCatchup(auth, { timeoutMs: 10000 }), "Your 15-minute window is open for all friends.");
 }
 
 async function endCatchup() {
   const window = currentWindow.value?.window;
   if (!window) return;
-  await perform((auth) => api.catchup.endCatchup({ ...auth, window }, { timeoutMs: 10000 }), "Catch-up ended. Messages already available stay here.");
+  await perform((auth) => api.catchup.endCatchup({ ...auth, window }, { timeoutMs: 10000 }), "Catch-up ended. Messages already available stay in your chats.");
 }
 
 async function saveMessage(message: MessageRow) {
-  await perform((auth) => api.catchup.save({ ...auth, message: message.message }, { timeoutMs: 10000 }), "Kept in your private Saved list.");
+  await perform((auth) => api.catchup.save({ ...auth, message: message.message }, { timeoutMs: 10000 }), "Message saved in this chat.");
 }
 
 async function removeSaved(message: MessageRow) {
-  await perform((auth) => api.catchup.removeSaved({ ...auth, message: message.message }, { timeoutMs: 10000 }), "Removed from Saved. The original message stays in your inbox.");
+  await perform((auth) => api.catchup.removeSaved({ ...auth, message: message.message }, { timeoutMs: 10000 }), "Removed from saved. The message stays in this chat.");
 }
 
 function changeAuthMode(mode: "login" | "register") {
@@ -190,6 +350,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  cancelUsernameCheck();
   clearInterval(clockTimer);
   clearInterval(pollTimer);
 });
@@ -198,10 +359,19 @@ onUnmounted(() => {
 <template>
   <div class="app-shell">
     <header class="site-header">
-      <span class="brand">Catchup<span class="brand-period">.</span></span>
-      <div v-if="credentials" class="account-controls">
-        <span class="signed-in-user">@{{ credentials.username }}</span>
-        <button class="quiet-button" :disabled="busy" @click="signOut">Sign out</button>
+      <CatchupTimer v-if="credentials" :window="currentWindow" :now="now" :busy="busy" @start="startCatchup" @end="endCatchup" />
+      <div class="header-actions">
+        <div v-if="credentials" class="account-controls">
+          <span class="signed-in-user">@{{ credentials.username }}</span>
+          <button class="quiet-button" :disabled="busy" @click="signOut">Sign out</button>
+        </div>
+        <button class="theme-toggle" type="button"
+          :aria-label="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+          @click="toggleTheme">
+          <svg v-if="theme === 'light'" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20.2 14A8.5 8.5 0 0 1 10 3.8 8.5 8.5 0 1 0 20.2 14Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4m0-14.2-1.4 1.4M6.3 17.7l-1.4 1.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+          <span>{{ theme === 'dark' ? 'Light mode' : 'Dark mode' }}</span>
+        </button>
       </div>
     </header>
 
@@ -223,72 +393,74 @@ onUnmounted(() => {
           <p v-if="authMode === 'register'" class="field-hint">Use at least 8 characters for your password.</p>
           <button class="primary-button auth-submit" :disabled="busy || !authUsername.trim() || !authPassword" type="submit">{{ busy ? 'One moment…' : authMode === 'login' ? 'Sign in' : 'Create account' }}</button>
         </form>
-        <p class="auth-footnote">Signing in doesn't start reception.</p>
       </section>
     </main>
 
     <main v-else class="dashboard-layout">
-      <h1 class="sr-only">Your messages</h1>
-      <div v-if="error || notice" class="feedback-stack" aria-live="polite">
+      <h1 class="sr-only">Your chats</h1>
+      <div v-if="error || updatesError" class="feedback-stack" aria-live="polite">
         <p v-if="error" class="error-banner" role="alert">{{ error }}</p>
-        <p v-if="notice" class="notice-banner" role="status">{{ notice }}</p>
+        <p v-if="updatesError" class="error-banner" role="status">{{ updatesError }} <button class="text-button" :disabled="loadingDashboard || busy" @click="refreshDashboard()">Try again</button></p>
       </div>
-      <div class="dashboard-columns">
-        <aside class="sidebar">
-          <section class="receiving-panel" :class="{ 'receiving-open': currentWindow }" aria-labelledby="receiving-title">
-            <h2 id="receiving-title">Receiving window</h2>
-            <template v-if="currentWindow">
-              <p>Open for new shares.</p>
-              <div class="window-countdown"><strong>{{ countdown }}</strong><span>remaining</span></div>
-              <button class="secondary-button full-width" :disabled="busy" @click="endCatchup">{{ busy ? 'One moment…' : 'End catch-up' }}</button>
-            </template>
-            <template v-else>
-              <p>Closed. Open a 15-minute window when you're ready.</p>
-              <button class="primary-button full-width" :disabled="busy" @click="startCatchup">{{ busy ? 'One moment…' : 'Catch up now' }}</button>
-            </template>
-          </section>
 
-          <section class="compose-panel" aria-labelledby="compose-title">
-            <h2 id="compose-title">Leave for later</h2>
-            <form @submit.prevent="sendMessage">
-              <label for="recipient">To a friend</label>
-              <div class="username-input"><span aria-hidden="true">@</span><input id="recipient" v-model="recipient" type="text" autocomplete="off" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}" placeholder="their_username" spellcheck="false" :disabled="busy" /></div>
-              <label for="message-text">Your share</label>
-              <textarea id="message-text" v-model="text" required maxlength="2000" rows="5" placeholder="A thought or a link…" :disabled="busy" aria-describedby="message-length"></textarea>
-              <p id="message-length" class="compose-meta">{{ text.length.toLocaleString() }} / 2,000 characters</p>
-              <button class="primary-button full-width" type="submit" :disabled="!canSend">{{ busy ? 'One moment…' : 'Leave for later' }}</button>
+      <div class="chat-workspace" :class="{ 'has-active-thread': selectedConversation, 'drawing-mode': selectedConversation && composerMode === 'draw' }">
+        <aside class="conversation-sidebar" aria-labelledby="chats-title">
+          <div class="conversation-tools">
+            <h2 id="chats-title">Chats</h2>
+            <label class="sr-only" for="chat-search">Find or start a chat by username, or search message text</label>
+            <form class="chat-search" role="search" :aria-busy="checkingUsername" @submit.prevent="openChatSearch">
+              <svg class="chat-search-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="m13 13 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <input id="chat-search" v-model="chatSearch" type="search" placeholder="Find or start a chat" autocomplete="off" spellcheck="false" :disabled="busy" :aria-invalid="Boolean(chatError)" :aria-describedby="chatError ? 'chat-search-hint chat-search-error' : 'chat-search-hint'" @input="cancelUsernameCheck(); chatError = ''" />
+              <button class="chat-search-submit" type="submit" :disabled="busy || checkingUsername || !chatSearch.trim()" :aria-label="searchTarget ? 'Open chat with this username' : 'Start chat by username'" :title="searchTarget ? 'Open chat with this username' : 'Start chat by username'"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path :d="searchTarget ? 'M4 10h12m-5-5 5 5-5 5' : 'M10 4v12M4 10h12'" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
             </form>
-          </section>
+            <p id="chat-search-hint" class="search-hint" role="status">{{ searchHint }}</p>
+            <p v-if="chatError" id="chat-search-error" class="chat-form-error" role="alert">{{ chatError }}</p>
+          </div>
+          <div class="conversation-list">
+            <p v-if="loadingDashboard && !conversations.length" class="conversation-empty" role="status">Loading chats…</p>
+            <p v-else-if="!conversations.length" class="conversation-empty">No chats yet. Start one with a friend's username.</p>
+            <p v-else-if="!filteredConversations.length" class="conversation-empty" role="status">No matching chats.</p>
+            <button v-for="conversation in filteredConversations" :key="conversation.username" class="conversation-row" :class="{ selected: selectedUsername === conversation.username, 'conversation-search-result': chatSearch.trim() }" :aria-current="selectedUsername === conversation.username ? 'true' : undefined" @click="selectConversation(conversation.username, chatSearch.trim() && conversation.matchCount ? conversation.previewMessage?.message : undefined)">
+              <span class="conversation-details">
+                <span class="conversation-row-heading"><strong><SearchHighlight :text="`@${conversation.username}`" :query="chatSearch" /></strong><time v-if="conversation.previewMessage" :datetime="conversation.previewMessage.createdAt">{{ listTime(conversation.previewMessage.createdAt) }}</time></span>
+                <span class="conversation-preview"><template v-if="conversation.previewMessage">{{ conversation.previewMessage.direction === 'outgoing' ? 'You: ' : '' }}<span v-if="conversation.previewMessage.drawing" class="drawing-preview">{{ conversation.previewText }}</span><SearchHighlight v-else :text="conversation.previewText" :query="chatSearch" /></template><template v-else>Start with a thought or a link</template></span>
+              </span>
+            </button>
+          </div>
         </aside>
 
-        <section class="messages-panel" aria-labelledby="messages-title">
-          <nav class="message-tabs" aria-label="Message lists">
-            <button :class="{ active: tab === 'inbox' }" :aria-current="tab === 'inbox' ? 'page' : undefined" @click="tab = 'inbox'">Inbox</button>
-            <button :class="{ active: tab === 'sent' }" :aria-current="tab === 'sent' ? 'page' : undefined" @click="tab = 'sent'">Sent</button>
-            <button :class="{ active: tab === 'saved' }" :aria-current="tab === 'saved' ? 'page' : undefined" @click="tab = 'saved'">Saved</button>
-          </nav>
-          <h2 id="messages-title" class="list-title">{{ tab === 'inbox' ? 'Available messages' : tab === 'sent' ? 'Sent messages' : 'Saved messages' }}</h2>
-          <p v-if="updatesError" class="error-banner updates-error" role="status">{{ updatesError }} <button class="text-button" :disabled="loadingDashboard || busy" @click="refreshDashboard()">Try again</button></p>
-          <p v-if="loadingDashboard && !dashboard.incoming.length && !dashboard.sent.length && !dashboard.saved.length" class="empty-state" role="status">Loading messages…</p>
-
-          <template v-else-if="tab === 'inbox'">
-            <p v-if="!incomingGroups.length" class="empty-state">{{ currentWindow ? 'No available messages yet. New shares will appear during this window.' : 'No available messages yet. Choose Catch up now when you’re ready.' }}</p>
-            <section v-for="group in incomingGroups" :key="group.user" class="friend-group" :aria-label="`Messages from ${group.username}`"><h3 class="group-heading">@{{ group.username }}</h3><MessageCard v-for="message in group.messages" :key="message.message" :message="message" :saved="savedIds.has(message.message)" :busy="busy" @save="saveMessage" @remove="removeSaved" /></section>
+        <section class="chat-thread" aria-labelledby="thread-title">
+          <template v-if="selectedConversation">
+            <header class="thread-header">
+              <button class="chat-back" type="button" aria-label="Back to chats" @click="backToChats"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m12 4-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Chats</span></button>
+              <h2 id="thread-title"><SearchHighlight :text="`@${selectedConversation.username}`" :query="chatSearch" /></h2>
+              <button class="saved-toggle" :class="{ active: savedOnly }" type="button" aria-label="Show saved messages only" :aria-pressed="savedOnly" @click="toggleSavedOnly"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 3h10v14l-5-3-5 3V3Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span>Saved only</span></button>
+            </header>
+            <div ref="threadScroll" class="thread-messages" role="region" tabindex="0" :aria-label="`Messages with ${selectedConversation.username}`">
+              <p v-if="savedOnly && !threadMessages.length" class="thread-empty">No saved messages in this chat. Save a received message to find it here.</p>
+              <p v-else-if="!threadMessages.length" class="thread-empty">Write your first message to @{{ selectedConversation.username }}.</p>
+              <ChatBubble v-for="message in threadMessages" :key="message.message" :message="message" :search-query="chatSearch" :saved="savedIds.has(message.message)" :busy="busy" @save="saveMessage" @remove="removeSaved" />
+            </div>
+            <form class="chat-composer" @submit.prevent="sendMessage">
+              <div class="composer-modes" role="group" aria-label="Message format">
+                <button class="composer-mode" :class="{ active: composerMode === 'text' }" type="button" :aria-pressed="composerMode === 'text'" :disabled="busy" @click="composerMode = 'text'">Text</button>
+                <button class="composer-mode" :class="{ active: composerMode === 'draw' }" type="button" :aria-pressed="composerMode === 'draw'" :disabled="busy" @click="composerMode = 'draw'">Draw</button>
+              </div>
+              <template v-if="composerMode === 'text'">
+                <label class="sr-only" for="chat-message">Message @{{ selectedConversation.username }}</label>
+                <div class="composer-input-row"><textarea id="chat-message" ref="messageInput" v-model="activeDraft" maxlength="2000" rows="2" :placeholder="`Message @${selectedConversation.username}…`" :disabled="busy" aria-describedby="composer-hint" @keydown="onComposerKeydown"></textarea><button class="primary-button send-button" type="submit" :disabled="!canSend"><span>Send</span><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m3 4 14 6-14 6 2-6-2-6Zm2 6h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+                <p id="composer-hint" class="composer-hint"><span>Enter to send · Shift+Enter for a new line</span><span>{{ activeDraft.length.toLocaleString() }} / 2,000</span></p>
+              </template>
+              <div v-else class="drawing-composer">
+                <DoodlePad :key="selectedConversation.username" v-model="activeDrawing" :disabled="busy" />
+                <div class="drawing-send-row"><button class="primary-button send-button" type="submit" :disabled="!canSend">Send drawing</button></div>
+              </div>
+            </form>
           </template>
-
-          <template v-else-if="tab === 'sent'">
-            <p v-if="!sentMessages.length" class="empty-state">No sent messages yet. Enter a friend's username in the composer.</p>
-            <MessageCard v-for="message in sentMessages" :key="message.message" :message="message" :status="message.status" :busy="busy" />
-            <p v-if="sentMessages.length" class="list-footnote">“Available” means your friend can view it. It doesn't mean they've read it.</p>
-          </template>
-
-          <template v-else>
-            <p v-if="!savedMessages.length" class="empty-state">No saved messages yet. Choose Keep for later on a received message.</p>
-            <MessageCard v-for="message in savedMessages" :key="message.message" :message="message" saved :busy="busy" @remove="removeSaved" />
-          </template>
+          <div v-else class="no-chat-selected"><svg viewBox="0 0 56 56" fill="none" aria-hidden="true"><path d="M10 12h36v26H28L17 46v-8h-7V12Z" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/><path d="M19 22h18M19 29h11" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg><h2 id="thread-title">A little space for your friends.</h2><p>Choose a chat or start one by username. Catch up when you're ready.</p></div>
         </section>
       </div>
     </main>
-
+    <ToastNotice :message="notice" @dismiss="notice = ''" />
   </div>
 </template>

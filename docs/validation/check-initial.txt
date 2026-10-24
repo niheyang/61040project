@@ -1,0 +1,19 @@
+Started (America/New_York): 2026-10-23T23:34:44-04:00
+Command: bun run check
+Base Git commit: 8230187f20c3b4472c232b2d10035242da2c6b73
+Source: uncommitted working tree; see source-manifest.sha256.
+Database tests use isolated catchup-test-UUID databases on local MongoDB.
+
+$ sync-engine check && sync-engine artifacts check && tsc --noEmit && vue-tsc --noEmit -p web/tsconfig.json
+Concept action/query source check passed for 5 concepts.
+Application diagnostic check passed with 15 advisories (use --show-advisories to list them).
+tests/drawing-http.test.ts(125,44): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(expected: string): void', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 2, '(expected: string): void', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+
+Exit code: 2
+Elapsed seconds: 6.33

@@ -1,0 +1,12 @@
+Started (America/New_York): 2026-10-23T23:36:57-04:00
+Command: bun run check
+Base Git commit: 8230187f20c3b4472c232b2d10035242da2c6b73
+Source: uncommitted working tree; see source-manifest.sha256.
+Database tests use isolated catchup-test-UUID databases on local MongoDB.
+
+$ sync-engine check && sync-engine artifacts check && tsc --noEmit && vue-tsc --noEmit -p web/tsconfig.json
+Concept action/query source check passed for 5 concepts.
+Application diagnostic check passed with 15 advisories (use --show-advisories to list them).
+
+Exit code: 0
+Elapsed seconds: 9.95

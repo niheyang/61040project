@@ -1,0 +1,66 @@
+Started (America/New_York): 2026-10-23T23:36:59-04:00
+Command: bun test tests/drawing.test.ts tests/drawing-domain.test.ts tests/drawing-http.test.ts
+Base Git commit: 8230187f20c3b4472c232b2d10035242da2c6b73
+Source: uncommitted working tree; see source-manifest.sha256.
+Database tests use isolated catchup-test-UUID databases on local MongoDB.
+
+bun test v1.4.2 (744846f84)
+
+tests/drawing-domain.test.ts:
+(pass) Messaging drawing content > preserves original multicolor strokes and participants through an exchange and a new concept instance [67.50ms]
+(pass) Messaging drawing content > persisted drawings remain unchanged when caller data or a returned record is edited [10.73ms]
+(pass) Messaging drawing content > repeated sends create distinct immutable messages instead of overwriting or merging a drawing [8.70ms]
+(pass) Messaging drawing content > accepts boundary coordinates, pressure endpoints, and the maximum supported stroke count [8.16ms]
+(pass) Messaging drawing content > accepts a drawing at the point-count limit when the encoded data remains within its byte limit [19.55ms]
+(pass) Messaging drawing content > keeps text and drawing messages compatible in one conversation [37.02ms]
+(pass) Messaging drawing content > refuses a self-addressed drawing without changing an existing conversation [24.93ms]
+(pass) Messaging drawing content > refuses null without mutating existing messages [22.79ms]
+(pass) Messaging drawing content > refuses array instead of drawing without mutating existing messages [36.58ms]
+(pass) Messaging drawing content > refuses empty drawing without mutating existing messages [38.07ms]
+(pass) Messaging drawing content > refuses empty stroke without mutating existing messages [32.71ms]
+(pass) Messaging drawing content > refuses unsupported version without mutating existing messages [49.72ms]
+(pass) Messaging drawing content > refuses wrong dimensions without mutating existing messages [40.24ms]
+(pass) Messaging drawing content > refuses unexpected drawing field without mutating existing messages [47.77ms]
+(pass) Messaging drawing content > refuses unexpected stroke field without mutating existing messages [49.78ms]
+(pass) Messaging drawing content > refuses unsupported ink without mutating existing messages [51.03ms]
+(pass) Messaging drawing content > refuses non-numeric point without mutating existing messages [61.32ms]
+(pass) Messaging drawing content > refuses non-finite coordinate without mutating existing messages [42.60ms]
+(pass) Messaging drawing content > refuses wrong point length without mutating existing messages [52.23ms]
+(pass) Messaging drawing content > refuses negative coordinate without mutating existing messages [33.24ms]
+(pass) Messaging drawing content > refuses coordinate outside canvas without mutating existing messages [39.23ms]
+(pass) Messaging drawing content > refuses decreasing time without mutating existing messages [32.23ms]
+(pass) Messaging drawing content > refuses negative time without mutating existing messages [52.50ms]
+(pass) Messaging drawing content > refuses excessive stroke duration without mutating existing messages [44.46ms]
+(pass) Messaging drawing content > refuses pressure outside range without mutating existing messages [34.70ms]
+(pass) Messaging drawing content > refuses too many strokes without mutating existing messages [24.52ms]
+(pass) Messaging drawing content > refuses too many points without mutating existing messages [29.79ms]
+(pass) Messaging drawing content > refuses too many bytes without mutating existing messages [44.41ms]
+
+tests/drawing.test.ts:
+(pass) drawing format > accepts boundary coordinates, zero/full pressure, a dot, and the stroke-count limit [0.63ms]
+(pass) drawing format > rejects each malformed or excessive drawing class [3.13ms]
+(pass) drawing format > returns a detached drawing without changing the caller's data [0.25ms]
+(pass) drawing format > rejects sparse and non-finite direct-call points, beyond JSON's ordinary inputs [0.11ms]
+(pass) drawing editor serialization > preserves ink, relative timing, pressure, and geometry through display-size round trips [0.47ms]
+(pass) drawing editor serialization > an empty pad or invalid scale cannot become a sendable drawing [0.05ms]
+(pass) drawing conversation previews and search > a drawing has a [Drawing] preview, while only usernames and typed content are searched [2.53ms]
+
+tests/drawing-http.test.ts:
+(pass) drawing HTTP journeys > drawings stay hidden alongside released text, then follow opening, arrival, and closing [4519.73ms]
+(pass) drawing HTTP journeys > pending and third-party drawings cannot be fetched or saved through guessed IDs [3455.26ms]
+(pass) drawing HTTP journeys > malformed drawings are refused without changing messages, holding, or any actor's dashboard [1546.18ms]
+(pass) drawing HTTP journeys > wrong credentials, missing recipients, self sends, and spoofed fields cannot create drawings [1784.93ms]
+(pass) drawing HTTP journeys > a drawing at the request-body limit succeeds and one extra byte fails without mutation [1424.86ms]
+(pass) drawing HTTP journeys > drawing bookmarks are private, idempotent, and removable without erasing conversation history [2220.35ms]
+(pass) drawing HTTP journeys > an application restart preserves drawings, timestamps, bookmarks, and pending privacy [2653.39ms]
+(pass) drawing HTTP journeys > drawings stop releasing at the exact deadline before expiry cleanup [1776.22ms]
+(pass) drawing HTTP journeys > concurrent drawing and opening releases each message exactly once [1348.46ms]
+(pass) drawing HTTP journeys > both drawing/close request orders obey the receiving boundary [2132.78ms]
+
+ 45 pass
+ 0 fail
+ 607 expect() calls
+Ran 45 tests across 3 files. [24.19s]
+
+Exit code: 0
+Elapsed seconds: 24.21

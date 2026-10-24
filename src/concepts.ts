@@ -5,7 +5,7 @@ import messagingSpec from "@design/concepts/Messaging.md" with { type: "text" };
 import holdingSpec from "@design/concepts/Holding.md" with { type: "text" };
 import receptivitySpec from "@design/concepts/Receptivity.md" with { type: "text" };
 import bookmarkingSpec from "@design/concepts/Bookmarking.md" with { type: "text" };
-import { Messaging, MessageToSelf, InvalidMessageText } from "./concepts/Messaging.ts";
+import { Messaging, MessageToSelf, InvalidMessageText, InvalidDrawing } from "./concepts/Messaging.ts";
 import { Holding } from "./concepts/Holding.ts";
 import { Receptivity } from "./concepts/Receptivity.ts";
 import { Bookmarking } from "./concepts/Bookmarking.ts";
@@ -18,7 +18,8 @@ const auth = registerConcept({ class: PasswordAuthenticatingConcept, spec,
 export const applicationConceptSet = conceptSet({
   PasswordAuthenticating: auth,
   Messaging: registerConcept({ class: Messaging, spec: messagingSpec,
-    refusals: { MESSAGE_TO_SELF: MessageToSelf, INVALID_MESSAGE_TEXT: InvalidMessageText } }),
+    refusals: { MESSAGE_TO_SELF: MessageToSelf, INVALID_MESSAGE_TEXT: InvalidMessageText,
+      INVALID_DRAWING: InvalidDrawing } }),
   Holding: registerConcept({ class: Holding, spec: holdingSpec }),
   Receptivity: registerConcept({ class: Receptivity, spec: receptivitySpec }),
   Bookmarking: registerConcept({ class: Bookmarking, spec: bookmarkingSpec }),

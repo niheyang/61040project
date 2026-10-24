@@ -107,6 +107,7 @@ describe("Catchup HTTP composition", () => {
     await denied("dashboard", { username: "bob", password: "wrong-password" }, "UNAUTHORIZED", 401);
     await denied("send", { username: "alice", password: "wrong-password", recipientUsername: "bob", text: "Unauthorized" }, "UNAUTHORIZED", 401);
     for (const [path, extra] of [
+      ["checkUsername", { recipientUsername: "alice" }],
       ["startCatchup", {}],
       ["endCatchup", { window: "guessed-window" }],
       ["save", { message: "guessed-message" }],
@@ -117,6 +118,61 @@ describe("Catchup HTTP composition", () => {
     }
     expect(await dashboard("alice")).toEqual({ incoming: [], sent: [], saved: [], windows: [] });
     expect(await dashboard("bob")).toEqual({ incoming: [], sent: [], saved: [], windows: [] });
+  }, 30_000);
+
+  test("exact username checks authenticate and reveal only existence without releasing held messages", async () => {
+    const held = await send("bob", "This content must stay hidden during username checks");
+    const beforeAlice = await dashboard("alice");
+    const beforeBob = await dashboard("bob");
+    const beforeEve = await dashboard("eve");
+    expect(beforeAlice.sent[0]).toMatchObject({ message: held.message, status: "PENDING" });
+    expect(beforeBob).toEqual({ incoming: [], sent: [], saved: [], windows: [] });
+
+    for (const recipientUsername of ["bob", "BOB", "  bOb  "]) {
+      expect(await post("checkUsername", { ...credentials("alice"), recipientUsername })).toEqual({ exists: true });
+    }
+    for (const recipientUsername of ["missing_user", "bo", "bob_extra"]) {
+      expect(await post("checkUsername", { ...credentials("alice"), recipientUsername })).toEqual({ exists: false });
+    }
+    // The recipient may check a sender's name without starting reception or
+    // learning whether that person has sent them a pending share.
+    expect(await post("checkUsername", { ...credentials("bob"), recipientUsername: "alice" })).toEqual({ exists: true });
+    for (const recipientUsername of ["bob", "missing_user"]) {
+      await denied("checkUsername", { username: "alice", password: "wrong-password", recipientUsername }, "UNAUTHORIZED", 401);
+    }
+    await denied("checkUsername", { username: "missing_actor", password, recipientUsername: "bob" }, "UNAUTHORIZED", 401);
+
+    expect(await dashboard("alice")).toEqual(beforeAlice);
+    expect(await dashboard("bob")).toEqual(beforeBob);
+    expect(await dashboard("eve")).toEqual(beforeEve);
+    await denied("viewMessage", { ...credentials("bob"), message: held.message }, "FORBIDDEN", 403);
+  }, 30_000);
+
+  test("username checks reject malformed or spoofed input without mutating state", async () => {
+    await send("bob", "Held content must stay private after invalid username checks");
+    const before = await dashboard("alice");
+    const beforeBob = await dashboard("bob");
+    const valid = { ...credentials("alice"), recipientUsername: "bob" };
+    for (const input of [
+      null,
+      [],
+      {},
+      credentials("alice"),
+      { ...valid, username: 42 },
+      { ...valid, password: [password] },
+      { ...valid, recipientUsername: 42 },
+      { ...valid, recipientUsername: null },
+      { ...valid, recipientUsername: "x".repeat(101) },
+      { ...valid, user: eve.user },
+      { ...valid, sender: eve.user },
+      { ...valid, recipient: bob.user },
+      { ...valid, constructor: "spoofed" },
+      { ...valid, ["__proto__"]: "spoofed" },
+    ]) {
+      await denied("checkUsername", input, "INVALID_REQUEST", 400);
+    }
+    expect(await dashboard("alice")).toEqual(before);
+    expect(await dashboard("bob")).toEqual(beforeBob);
   }, 30_000);
 
   test("the complete journey holds messages, releases them on demand, and keeps saved content after closing", async () => {
@@ -171,6 +227,63 @@ describe("Catchup HTTP composition", () => {
     await post("save", { ...credentials("bob"), message: message.message });
     await post("removeSaved", { ...credentials("eve"), message: message.message });
     expect(ids((await dashboard("bob")).saved)).toEqual([message.message]);
+  }, 30_000);
+
+  test("two-way conversations keep receiving windows independent and held arrivals invisible", async () => {
+    const reply = await post<{ message: string }>("send", {
+      ...credentials("bob"), recipientUsername: "alice", text: "A reply that can wait for Alice",
+    });
+    const bobAfterSending = await dashboard("bob");
+    expect(bobAfterSending.windows).toEqual([]);
+    expect(bobAfterSending.incoming).toEqual([]);
+    expect(bobAfterSending.sent).toHaveLength(1);
+    expect(bobAfterSending.sent[0]).toMatchObject({
+      message: reply.message, sender: bob.user, recipient: alice.user, status: "PENDING",
+    });
+    const aliceBeforeOpening = await dashboard("alice");
+    expect(aliceBeforeOpening.windows).toEqual([]);
+    expect(aliceBeforeOpening.incoming).toEqual([]);
+
+    const firstFromAlice = await send("bob", "Alice's first share");
+    expect(await dashboard("bob")).toEqual(bobAfterSending);
+    const bobWindow = await open("bob");
+    const bobWhileOpen = await dashboard("bob");
+    expect(ids(bobWhileOpen.incoming)).toEqual([firstFromAlice.message]);
+    expect(bobWhileOpen.sent[0]?.status).toBe("PENDING");
+    expect((await dashboard("alice")).incoming).toEqual([]);
+    expect((await dashboard("alice")).windows).toEqual([]);
+
+    await post("save", { ...credentials("bob"), message: firstFromAlice.message });
+    await close(bobWindow.window, "bob");
+    const bobClosed = await dashboard("bob");
+    expect(bobClosed.windows).toEqual([]);
+    expect(ids(bobClosed.saved)).toEqual([firstFromAlice.message]);
+    const laterFromAlice = await send("bob", "A held share from an existing conversation");
+    const firstFromEve = await post<{ message: string }>("send", {
+      ...credentials("eve"), recipientUsername: "bob", text: "A held share from a new conversation",
+    });
+
+    // Chat rows, previews, ordering, and bookmarks use this entire authorized
+    // response. Neither an existing friend's share nor a new sender can alter it.
+    expect(await dashboard("bob")).toEqual(bobClosed);
+    await denied("viewMessage", { ...credentials("bob"), message: laterFromAlice.message }, "FORBIDDEN", 403);
+    await denied("viewMessage", { ...credentials("bob"), message: firstFromEve.message }, "FORBIDDEN", 403);
+
+    const aliceWindow = await open("alice");
+    const aliceOpen = await dashboard("alice");
+    expect(ids(aliceOpen.incoming)).toEqual([reply.message]);
+    expect(aliceOpen.windows.map(window => window.window)).toEqual([aliceWindow.window]);
+    const bobWhileAliceReceives = await dashboard("bob");
+    expect(bobWhileAliceReceives.windows).toEqual([]);
+    expect(ids(bobWhileAliceReceives.incoming)).toEqual([firstFromAlice.message]);
+    expect(ids(bobWhileAliceReceives.saved)).toEqual([firstFromAlice.message]);
+    expect(bobWhileAliceReceives.sent[0]).toMatchObject({ message: reply.message, status: "RELEASED" });
+
+    // Bob's next explicit window releases pending shares from every friend.
+    await open("bob");
+    expect(ids((await dashboard("bob")).incoming)).toEqual([
+      firstFromAlice.message, laterFromAlice.message, firstFromEve.message,
+    ].sort());
   }, 30_000);
 
   test("the exact 15-minute deadline stops release before any cleanup timer runs", async () => {

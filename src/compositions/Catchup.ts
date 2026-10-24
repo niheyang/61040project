@@ -1,7 +1,7 @@
 import { endpoint, receive, respond } from "@mit-sdg/sync-engine/boundary";
 import { compute, each, former, no, reaction, view, when, where } from "@mit-sdg/sync-engine/language";
 import { concepts, computations } from "../concepts.ts";
-import { credentials, stringInput } from "./validators.ts";
+import { credentials, drawingInput, stringInput } from "./validators.ts";
 
 const { PasswordAuthenticating: Auth, Messaging, Holding, Receptivity, Bookmarking } = concepts;
 const Register = endpoint("/catchup/register", ({ username, password, user, canonicalUsername }) =>
@@ -13,40 +13,50 @@ const Login = endpoint("/catchup/login", ({ username, password, user, canonicalU
     .then(Auth.authenticate({ username, password }).responds({ user, username: canonicalUsername }))
     .then(respond({ user, username: canonicalUsername })), stringInput(credentials));
 
+const CheckUsername = endpoint("/catchup/checkUsername", ({ username, password, recipientUsername }) =>
+  receive({ username, password, recipientUsername })
+    .then(Auth.authenticate({ username, password }).responds({}))
+    .then(
+      where(Auth._byUsername({ username: recipientUsername }))
+        .then(respond({ exists: true })).named("found"),
+      where(no(Auth._byUsername({ username: recipientUsername })))
+        .then(respond({ exists: false })).named("missing"),
+    ), stringInput({ ...credentials, recipientUsername: 100 }));
+
 const ReleasedIncoming = view("a released incoming message of (person)",
-  ({ person }, { message, sender, text, createdAt }) => where(
-    Messaging._addressedTo({ user: person }).is({ message, sender, text, createdAt }),
+  ({ person }, { message, sender, text, drawing, createdAt }) => where(
+    Messaging._addressedTo({ user: person }).is({ message, sender, text, drawing, createdAt }),
     Holding._status({ recipient: person, item: message }).is({ status: "RELEASED" }),
   )).many();
 
 const AccessibleMessage = view("the released message (message) for (person)",
-  ({ person, message }, { sender, text, createdAt }) => where(
-    Messaging._get({ message }).is({ recipient: person, sender, text, createdAt }),
+  ({ person, message }, { sender, text, drawing, createdAt }) => where(
+    Messaging._get({ message }).is({ recipient: person, sender, text, drawing, createdAt }),
     Holding._status({ recipient: person, item: message }).is({ status: "RELEASED" }),
   )).optional();
 
 const Incoming = former("the incoming messages of (person)",
-  ({ person }, { message, sender, text, createdAt, senderUsername, recipientUsername }) =>
-    each(ReleasedIncoming({ person }).is({ message, sender, text, createdAt }))
+  ({ person }, { message, sender, text, drawing, createdAt, senderUsername, recipientUsername }) =>
+    each(ReleasedIncoming({ person }).is({ message, sender, text, drawing, createdAt }))
       .where(Auth._name({ user: sender }).is({ username: senderUsername }),
         Auth._name({ user: person }).is({ username: recipientUsername }))
-      .form({ message, sender, recipient: person, text, createdAt, senderUsername, recipientUsername }));
+      .form({ message, sender, recipient: person, text, drawing, createdAt, senderUsername, recipientUsername }));
 
 const Sent = former("the sent messages of (person)",
-  ({ person }, { message, recipient, text, createdAt, status, senderUsername, recipientUsername }) =>
-    each(Messaging._sent({ user: person }).is({ message, recipient, text, createdAt }))
+  ({ person }, { message, recipient, text, drawing, createdAt, status, senderUsername, recipientUsername }) =>
+    each(Messaging._sent({ user: person }).is({ message, recipient, text, drawing, createdAt }))
       .where(Holding._status({ recipient, item: message }).is({ status }),
         Auth._name({ user: person }).is({ username: senderUsername }),
         Auth._name({ user: recipient }).is({ username: recipientUsername }))
-      .form({ message, sender: person, recipient, text, createdAt, status, senderUsername, recipientUsername }));
+      .form({ message, sender: person, recipient, text, drawing, createdAt, status, senderUsername, recipientUsername }));
 
 const Saved = former("the saved messages of (person)",
-  ({ person }, { message, sender, text, createdAt, senderUsername, recipientUsername }) =>
+  ({ person }, { message, sender, text, drawing, createdAt, senderUsername, recipientUsername }) =>
     each(Bookmarking._saved({ person }).is({ item: message }))
-      .where(AccessibleMessage({ person, message }).is({ sender, text, createdAt }),
+      .where(AccessibleMessage({ person, message }).is({ sender, text, drawing, createdAt }),
         Auth._name({ user: sender }).is({ username: senderUsername }),
         Auth._name({ user: person }).is({ username: recipientUsername }))
-      .form({ message, sender, recipient: person, text, createdAt, senderUsername, recipientUsername }));
+      .form({ message, sender, recipient: person, text, drawing, createdAt, senderUsername, recipientUsername }));
 
 const Windows = former("the active window of (person)",
   ({ person }, { window, startedAt, expiresAt }) =>
@@ -54,14 +64,18 @@ const Windows = former("the active window of (person)",
       .form({ window, person, startedAt, expiresAt }));
 
 const MessageDetails = former("the received message (message) of (person)",
-  ({ person, message }, { sender, text, createdAt, senderUsername, recipientUsername }) =>
-    where(AccessibleMessage({ person, message }).is({ sender, text, createdAt }),
+  ({ person, message }, { sender, text, drawing, createdAt, senderUsername, recipientUsername }) =>
+    where(AccessibleMessage({ person, message }).is({ sender, text, drawing, createdAt }),
       Auth._name({ user: sender }).is({ username: senderUsername }),
       Auth._name({ user: person }).is({ username: recipientUsername }))
-      .form({ message, sender, recipient: person, text, createdAt, senderUsername, recipientUsername })).optional();
+      .form({ message, sender, recipient: person, text, drawing, createdAt, senderUsername, recipientUsername })).optional();
 
 const HoldShare = reaction(({ sender, recipient, text, message }) =>
   when(Messaging.send({ sender, recipient, text }).responds({ message }))
+    .then(Holding.enqueue({ recipient, item: message })));
+
+const HoldDrawing = reaction(({ sender, recipient, drawing, message }) =>
+  when(Messaging.sendDrawing({ sender, recipient, drawing }).responds({ message }))
     .then(Holding.enqueue({ recipient, item: message })));
 
 const ReleasePending = reaction(({ person, window, item, items }) =>
@@ -91,6 +105,22 @@ const Send = endpoint("/catchup/send", ({ username, password, recipientUsername,
 
 const SendMissingRecipient = endpoint("/catchup/send", ({ username, password, recipientUsername, text, sender }) =>
   receive({ username, password, recipientUsername, text })
+    .where(no(Auth._byUsername({ username: recipientUsername })))
+    .then(Auth.authenticate({ username, password }).responds({ user: sender }))
+    .then(respond({ error: "RECIPIENT_NOT_FOUND" })));
+
+const SendDrawing = endpoint("/catchup/sendDrawing", ({ username, password, recipientUsername, drawing, sender, recipient, message }) =>
+  receive({ username, password, recipientUsername, drawing })
+    .where(Auth._byUsername({ username: recipientUsername }))
+    .then(Auth.authenticate({ username, password }).responds({ user: sender }))
+    .then(where(Auth._byUsername({ username: recipientUsername }).is({ user: recipient }))
+      .then(Messaging.sendDrawing({ sender, recipient, drawing }).responds({ message })))
+    .afterFlowSettles()
+    .where(Holding._status({ recipient, item: message }).is.not({ status: "ABSENT" }))
+    .then(respond({ message })), drawingInput());
+
+const SendDrawingMissingRecipient = endpoint("/catchup/sendDrawing", ({ username, password, recipientUsername, drawing, sender }) =>
+  receive({ username, password, recipientUsername, drawing })
     .where(no(Auth._byUsername({ username: recipientUsername })))
     .then(Auth.authenticate({ username, password }).responds({ user: sender }))
     .then(respond({ error: "RECIPIENT_NOT_FOUND" })));
@@ -140,6 +170,7 @@ const ViewMessage = endpoint("/catchup/viewMessage", ({ username, password, pers
         .then(respond({ error: "MESSAGE_UNAVAILABLE" })).named("unavailable"),
     ), stringInput({ ...credentials, message: 100 }));
 
-export const composition = { Register, Login, Send, SendMissingRecipient, Dashboard, StartCatchup, EndCatchup,
-  Save, RemoveSaved, ViewMessage, HoldShare, ReleasePending, ReleaseNewItem,
+export const composition = { Register, Login, CheckUsername, Send, SendMissingRecipient, SendDrawing, SendDrawingMissingRecipient,
+  Dashboard, StartCatchup, EndCatchup,
+  Save, RemoveSaved, ViewMessage, HoldShare, HoldDrawing, ReleasePending, ReleaseNewItem,
   ReleasedIncoming, AccessibleMessage, Incoming, Sent, Saved, Windows, MessageDetails };

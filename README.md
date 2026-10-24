@@ -2,9 +2,20 @@
 
 **Share when you think of it. Catch up when you choose.**
 
-MIT 6.1040 · Fall 2026 · Personal Project · [P1: Design](https://61040.github.io/fa26/assignments/personal-project/#p1-design) · [P2: MVP](https://61040.github.io/fa26/assignments/p2/)
+MIT 6.1040 · Fall 2026 · Personal Project · [P1: Design](https://61040.github.io/fa26/assignments/personal-project/#p1-design) · [P2: MVP](https://61040.github.io/fa26/assignments/p2/) · [P3: Beta](https://61040.github.io/fa26/assignments/p3/)
 
-Catchup is a private space for existing friends to exchange non-urgent messages and links. Senders capture a share immediately; recipients choose when pending shares become available and can save messages they want to revisit. The proposed benefit is preserving wanted exchanges while letting recipients choose when to engage. Its usefulness compared with existing messaging tools remains to be tested.
+Catchup is a private space for existing friends to exchange non-urgent messages, links, and handwritten drawings. A friend can share something when they think of it; the recipient chooses when new shares enter their conversation history by opening a 15-minute catch-up window. Pending incoming messages stay hidden, and previously released conversations remain accessible. The proposed benefit is helping friends return to exchanges they value at a welcome moment. Whether this helps enough to justify another app remains to be tested.
+
+## P3 deliverables
+
+- [Updated user journey](user_journey.md)
+- [Two-minute recording script](docs/p3-recording-script.md) — preparation for the student's narrated video, which is still to be recorded and linked
+- Visual design study — being prepared in `docs/visual-design/`
+- [Production setup and deployment checklist](docs/deployment.md) — a live app has not yet been created
+- [P3 automated validation results](docs/validation/README.md) — 89 passing tests, including 45 drawing tests, with saved output and limits
+- [Design notebook in the individual repository](https://github.com/niheyang/6.1040/blob/main/project/design_notebook.md) — local draft; available after that repository is committed and pushed
+
+The code, journey, study, and saved test output belong in this project repository. The current design notebook belongs in the separate individual repository, as the [P3 brief](https://61040.github.io/fa26/assignments/p3/) requires. The older [P2 design notes](design_notes.md) remain here as a historical record. Deployment, video, commit links, and final Commons submission remain pending until completed.
 
 ## Contents
 
@@ -12,7 +23,7 @@ Catchup is a private space for existing friends to exchange non-urgent messages 
 - [Try the core journey](#try-the-core-journey)
 - [MVP scope](#mvp-scope)
 - [Understand the implementation](#understand-the-implementation)
-- [Validation and P2 handoff](#validation-and-p2-handoff)
+- [Validation and project progress](#validation-and-project-progress)
 - [Problem framing and stakeholders](#problem-framing-and-stakeholders)
 - [Application pitch](#application-pitch)
 - [Concept design](#concept-design)
@@ -47,7 +58,7 @@ Copy the example only when `.env` does not already exist. It configures the loca
 
 | Component | Address / location | What it does |
 | --- | --- | --- |
-| Vue frontend | `http://127.0.0.1:8080` | Forms, inbox, sent shares, and saved messages |
+| Vue frontend | `http://127.0.0.1:8080` | Friend conversations, messages, and catch-up controls |
 | Bun backend | `http://127.0.0.1:3000` | Authentication, authorized requests, and reactions |
 | MongoDB | `127.0.0.1:27018`, database `catchup` | Accounts, messages, delivery state, windows, and bookmarks |
 
@@ -61,21 +72,31 @@ Use two browser tabs or windows and create two accounts, such as Alice and Bob. 
 
 For trying this computer's existing sample data, the local demo accounts are `alice_demo` and `bob_demo`, both with password `catchup-demo-2026`. Bob has received three sample shares and saved one. These accounts are demonstration fixtures.
 
-1. **Alice captures a share.** Send a short message or link to Bob. Alice's Sent tab shows **Saved for later** while Bob's reception is closed.
-2. **Bob signs in.** His inbox reveals no pending message content, badge, or waiting count. Signing in does not open reception.
-3. **Bob selects Catch up now.** A 15-minute window opens. Alice's message appears with its original creation time, grouped under her username.
+1. **Alice starts a chat.** Enter Bob's exact username in **Find or start a chat** and select the plus button or press Enter. Send a short message or link using **Text**, or select **Draw** to send a handwritten note. Alice's outgoing message shows **Waiting for catch-up** while Bob's reception is closed.
+2. **Bob signs in.** Held messages reveal no conversation row, preview, badge, or waiting count. Signing in or opening an existing chat does not open reception.
+3. **Bob selects Catch up now.** A 15-minute window opens across all friends. Alice's message appears in their conversation with its original creation time.
 4. **Alice sends another share.** During Bob's open window, it becomes **Available** and appears automatically. Available describes access; it is not a read receipt.
-5. **Bob selects Keep for later.** The message appears in his private Saved tab with its full original text, links, sender, and timestamp. To respond, enter Alice's username in the ordinary composer.
+5. **Bob replies in Alice's chat.** Both directions appear together in chronological order. His reply waits for Alice's own catch-up window. He can select **Save** on a received message and use **Saved only** to find his private bookmarks within that chat.
 6. **Bob ends catch-up.** Released messages and bookmarks remain accessible. Another new share from Alice waits until Bob opens a later window.
-7. **Bob removes a bookmark.** It disappears from Saved while its original message remains in the inbox.
+7. **Bob removes a bookmark.** Select **Saved** on the bookmarked bubble. It disappears from the saved filter while its original message remains in the conversation.
 
 You must sign in again after reloading because the Vue app keeps credentials only in memory. Accounts and content remain in MongoDB. An existing receiving window also persists: signing out or closing a tab does not end it. Use **End catch-up** or let its server-side deadline pass.
 
 ## MVP scope
 
-This MVP demonstrates three product behaviors: capture a share, choose when to receive it, and keep a received message for later. Accounts and persistent storage support that private exchange. Inbox, Sent, and Saved show the corresponding states.
+This MVP demonstrates three product behaviors: capture a share, choose when to receive it, and keep a received message for later. The P3 interface groups the exchange into one conversation per friend, with incoming and outgoing bubbles, a targeted composer, conversation search, and a private saved-message filter.
 
-The interface omits the duplicate original-message dialog, reply shortcut, saved-count badge, routine manual refresh control, and decorative onboarding sections. Saved displays the complete original message directly. Replies use the same composer as new shares, and messages refresh automatically. The timer, end control, sender delivery status, validation, and error retry remain because they explain or protect the core behavior.
+Start a conversation by an existing friend's username. **Find or start a chat** filters existing conversations by username or typed message content, ignoring case. Clicking a result opens that conversation at its matching message. Enter or the plus button opens or starts a chat with the exact username, after checking the account exists. An optional leading `@` is accepted. A username mentioned in another conversation does not redirect the Enter action to that content match. Missing accounts produce an error without creating an empty chat. Drawings have a **[Drawing]** preview; their handwriting is not searched or recognized.
+
+Conversations containing messages are reconstructed from MongoDB history when you sign in. Empty new chats and per-friend text/drawing drafts stay in memory for the current tab and clear on sign-out or reload. Friends do not require a separate request or acceptance step. Messages refresh automatically while the tab is visible; the interface adds no read receipts, presence indicators, or held-message counts.
+
+### Handwriting and doodles
+
+The composer defaults to **Text**. Select **Draw** for a small freehand pad with navy, teal, and coral ink, **Undo**, **Clear**, and **Send drawing**. Switching modes or friends preserves completed draft strokes during the current signed-in session; a successful send clears only the drawing that was sent. The same catch-up release rules and private bookmarks apply to both message formats.
+
+The editor uses [Signature Pad](https://github.com/szimek/signature_pad), an MIT-licensed library, with our Vue controls and message integration. Its [license notice](web/public/third-party-notices.txt) is included with the app. Drawings are stored as bounded stroke coordinates in MongoDB, with no separate media upload service. The format has a 600×300 logical canvas, three allowed ink colors, and limits of 120 strokes, 3,000 points, and 96,000 serialized bytes. These bounds keep small notes suitable for the current full-history dashboard refresh. Larger media support would need a different loading strategy.
+
+See the [handwriting implementation walkthrough](docs/handwriting.md) for the data flow and file locations. [Automated drawing validation](docs/validation/README.md) covers storage, refusals, release/privacy, bookmarks, serialization, and previews. Browser interaction, appearance, and live-deployment checks remain to be recorded separately.
 
 ## Understand the implementation
 
@@ -90,7 +111,7 @@ The five independent concept implementations live in [`src/concepts/`](src/conce
 | Concept | Responsibility |
 | --- | --- |
 | PasswordAuthenticating | Register accounts, store Argon2id password hashes, and return a stable authenticated user identity |
-| Messaging | Preserve message text, sender, recipient, and original creation time |
+| Messaging | Preserve text or drawing content, sender, recipient, and original creation time |
 | Holding | Keep opaque message handles pending or released; repeated enqueue/release is harmless |
 | Receptivity | Manage explicit 15-minute receiving windows and safely replace or close them |
 | Bookmarking | Keep a private, idempotent list of opaque message handles |
@@ -115,15 +136,18 @@ Every protected endpoint authenticates its credentials. The acting identity come
 
 ### Step 4: Display the state with Vue
 
-[`web/src/App.vue`](web/src/App.vue) contains the Composition API interface. [`web/src/MessageCard.vue`](web/src/MessageCard.vue) renders reusable message cards, and [`web/src/api.ts`](web/src/api.ts) calls the typed generated API.
+[`web/src/App.vue`](web/src/App.vue) contains the Composition API interface. [`web/src/conversations.ts`](web/src/conversations.ts) combines authorized incoming and outgoing records by friend, orders each thread chronologically, and derives its latest visible preview. [`web/src/ChatMessage.vue`](web/src/ChatMessage.vue) renders message bubbles, and [`web/src/api.ts`](web/src/api.ts) calls the typed generated API. Text and drawing messages use the generated backend contract; hidden incoming messages never reach the grouping or search code.
 
-`ref()` stores changing values such as the selected tab and dashboard response. `computed()` derives the countdown, friend groups, and saved-message lookup from those values. Stable message IDs used as Vue `:key` values keep rendered cards associated with the correct message. The dashboard refreshes every three seconds while the tab is visible; refreshing never starts a receiving window.
+The P3 appearance update uses locally hosted [Nunito Sans](https://fontsource.org/fonts/nunito-sans), aqua surfaces, navy text, and yellow action buttons. The flatter chat layout uses 6-pixel button corners, fewer outlines, and 17-pixel message text. Received messages sit directly on the thread background; outgoing messages have a subtle fill and 8-pixel corners. Left/right alignment and distinct fills distinguish the two directions without repeating sender names above every message. The header's light/dark switch remembers the browser's choice and initially follows the device preference. Colors live in [`web/src/style.css`](web/src/style.css); theme behavior lives in [`web/src/theme.ts`](web/src/theme.ts). Sample-message layout previews from before the repeated sender labels were removed are available in [light mode](docs/previews/p3-flat-light.jpg), [dark mode](docs/previews/p3-flat-dark.jpg), and [mobile dark mode](docs/previews/p3-flat-mobile-dark.jpg).
+
+`ref()` stores changing values such as the selected friend, per-friend drafts, and dashboard response. `computed()` derives the countdown, conversations, and saved-message lookup from those values. Stable message IDs used as Vue `:key` values keep rendered bubbles associated with the correct message. The dashboard refreshes every three seconds while the tab is visible; refreshing never starts a receiving window. Enter sends a message; Shift+Enter inserts a new line. On narrow screens, **Back to chats** returns to the friend list without losing the current draft.
 
 ### Step 5: Check the behavior
 
 From the project folder:
 
 ```sh
+bun run db:up
 bun run check:design
 bun run check
 bun test
@@ -132,19 +156,21 @@ bun run build
 
 `check:design` checks the authored specification format. `check` checks concept source, application diagnostics, generated artifacts, and backend/Vue types. `bun test` checks behavior using isolated temporary MongoDB databases; it does not clear the application's database. `build` produces frontend files in `web/dist` for later deployment work.
 
-## Validation and P2 handoff
+## Validation and project progress
 
-The implementation passes **18 automated tests with 342 assertions**, the authored design check, generated-artifact check, backend/Vue type checks, and the production frontend build. Tests cover persistence, password failures, the complete user journey, private bookmarks, direct-access authorization, malformed/spoofed requests, simultaneous send/open operations, exact expiry, and stale window handles.
+On October 23, 2026, the complete automated suite passed **89 tests with 1,229 `expect()` calls**, including **45 drawing tests**. The authored design check, generated-artifact check, backend/Vue type checks, and production frontend build also passed. [Saved commands, results, initial correction, source hashes, and limitations](docs/validation/README.md) are included for P3. Database-backed tests use isolated temporary databases and do not clear the application's data.
 
-The simplified interface passes the live browser journey: registration, held-message invisibility, release on opening, automatic arrivals during reception, full original content in Saved, closing, removal without deleting the original, and sign-in persistence. Desktop and 390-pixel mobile layouts were checked with no horizontal overflow or browser console errors. The countdown starts at 15:00.
+The tests cover text and drawing persistence, password failures, recipient/release authorization, private bookmarks, malformed/spoofed requests, concurrent sending/opening/closing, exact expiry, stale window handles, and drawing format limits. Pure front-end data tests cover conversation grouping, username/content search, drawing previews, and drawing serialization. A local handler journey exercises the back end and MongoDB; it is not a substitute for completing the journey through the browser interface.
 
-![Simplified Catchup MVP with full original content in Saved](p2-preview.jpg)
+Earlier browser checks covered the text-only conversation flow and earlier typography/layout versions. The preview images below are historical. No browser checks were performed in the October 23 automated validation run; the latest handwriting controls, layout, themes, and deployed app still need manual verification.
+
+![P3 Catchup layout with sample messages](docs/previews/p3-flat-light.jpg)
 
 The engine reports conservative endpoint-fallback and former-ordering advisories. Each endpoint binds authentication outputs, which its static fallback check does not prove; the tests exercise both successful requests and refusals. Array queries use deterministic database ordering, and Vue sorts the displayed messages explicitly. These advisories were reviewed rather than suppressed.
 
-This README preserves the historical P1 design below. The P2 implementation uses separate Inbox, Sent, and Saved views and one composer. The P1 sketches include an original-message dialog and reply shortcut; the smaller MVP displays the full message in Saved and uses the ordinary composer for responses. Search, new-message highlighting, and a combined conversation-history page are outside this local MVP.
+The concept discussion and UI sketches below record the earlier P1 design; the authored specifications linked above describe the implemented text and drawing behavior. The earlier P2 implementation used separate Inbox, Sent, and Saved views; its [screenshot](p2-preview.jpg) records that version. The current P3 interface combines friend histories and adds conversation search. Handwritten drawings are now implemented; voice, image uploads, and a first-use guide remain possible future work. Deployment preparation is documented separately from live deployment.
 
-For the [P2 handoff](https://61040.github.io/fa26/assignments/p2/), record the core journey above with your own narration and add your own development/reflection notes required by the assignment. The code, formal specifications, implementation explanation, and validation evidence are ready to use; this README does not claim an observed user trial or a completed personal reflection.
+For a submission, record the current journey above with your own narration and add your own development/reflection notes. This README documents implementation and validation; it does not claim an observed user trial, deployment, or a completed personal reflection.
 
 ## Problem framing and stakeholders
 
@@ -158,7 +184,7 @@ Casual, asynchronous communication between existing friends. People share small 
 
 **An intention to revisit is lost.** Bob encounters a message while occupied and wants to return to it with more attention. Later, he forgets which exchange he intended to revisit. The desired follow-up is lost among other activity. This is a design hypothesis: the evidence below supports forgotten checking, but does not establish this entire sequence or how frequently it occurs.
 
-**Awareness of an unread message disrupts concentration.** Bob notices a new-message indicator while doing homework. He returns to his work without opening the message, but repeatedly wonders what his friend sent, making it harder to regain his train of thought. This is another situation to investigate; the sources below do not yet corroborate it.
+The working question is whether a recipient-chosen receiving moment helps these friends return to wanted shares. The signal explored here is explicit readiness to receive new content. This is a hypothesis about timing and returning to an exchange, rather than a claim that the app can infer importance or guarantee attention.
 
 The intended users are friends who experience these difficulties despite their existing arrangements. The problem is not universal. Someone comfortable sending at any hour, or whose scheduled sending, notification settings, and checking routines already meet their needs, may have little reason to use Catchup.
 
@@ -168,7 +194,7 @@ In a [Reddit discussion of scheduled texting](https://www.reddit.com/r/NoStupidQ
 
 In a [discussion of Do Not Disturb](https://www.reddit.com/r/ios/comments/mr2rzt/do_not_disturb/), a commenter reports forgetting to check missed notifications manually. This supports investigating forgotten checking. It does not establish that someone read a friend's message, intended a considered response, and then forgot that intention. The reported device behavior is historical, not a claim about current iOS.
 
-No interviews or trials have been conducted for this design. The second and third situations and the benefit of recipient-initiated catch-up need further evidence. The distraction scenario does not establish an advantage over muting chats or hiding notification indicators; these alternatives belong in the evaluation.
+No participant interviews or comparative trials have been recorded for this design. The second situation and the benefit of recipient-initiated catch-up need further evidence. Functional testing of the implementation does not establish that people benefit from this workflow.
 
 ### Workarounds and comparables
 
@@ -180,7 +206,7 @@ No interviews or trials have been conducted for this design. The second and thir
 | [Telegram Send When Online](https://telegram.org/blog/verifiable-apps-and-more) | Delivery when the recipient comes online, where their online status is visible to the sender. | Does explicitly choosing to catch up differ meaningfully from coming online? |
 | [Apple message tracking](https://support.apple.com/guide/iphone/keep-track-of-messages-iphe9b48b89e/ios) and [Slack saved messages](https://slack.com/help/articles/360042650274-Save-messages-and-files-for-later) | Existing ways to preserve conversations or messages for later attention. | Does combining saved items with recipient-initiated receiving make returning easier? |
 
-None of Catchup's individual components is claimed to be unprecedented. The proposal combines a channel understood as non-urgent, explicit receiving windows, and private saved items. A notification plugin could address much of the original interruption problem and might implement similar behavior. Keeping pending items on a server is not, by itself, a reason to prefer this app.
+None of Catchup's individual components is claimed to be unprecedented. Existing chats also preserve messages, and muting, unread markers, summaries, and saved items can already help people manage later attention. Catchup's specific interaction keeps pending incoming content out of the recipient's conversation history until an explicit receiving window opens; browsing old exchanges does not admit new shares. The proposal combines this receiving boundary with friend conversations and private saved items. A notification plugin could address much of the original interruption problem and might implement similar behavior. Keeping pending items on a server is not, by itself, a reason to prefer this app.
 
 Catchup would complement the friends' existing communication tools. One pair could try it without moving their wider social network. Nevertheless, an additional channel creates effort, and that cost must be evaluated.
 

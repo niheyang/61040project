@@ -13,6 +13,19 @@ export type Json = null | boolean | number | string | Json[] | { [key: string]: 
 export type AppWideError = never;
 
 export type CatchupWire = {
+  "/catchup/checkUsername": {
+    input: {
+      "password": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["password"]>>;
+      "recipientUsername": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_byUsername"]>[0], ["username"]>>;
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["username"]>>;
+    };
+    output: {
+      "exists": true;
+    } | {
+      "exists": false;
+    };
+    error: { error: AppWideError | "INVALID_CREDENTIALS" | "INVALID_INPUT" };
+  };
   "/catchup/dashboard": {
     input: {
       "password": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["password"]>>;
@@ -21,6 +34,7 @@ export type CatchupWire = {
     output: {
       "incoming": {
         "createdAt": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_addressedTo"]>>>, ["createdAt"]>>;
+        "drawing": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_addressedTo"]>>>, ["drawing"]>>;
         "message": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["item"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_addressedTo"]>>>, ["message"]>]>>;
         "recipient": Jsonify<AllOf<[AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>>, ["user"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["recipient"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Messaging"]["_addressedTo"]>[0], ["user"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_name"]>[0], ["user"]>]>>;
         "recipientUsername": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_name"]>>>, ["username"]>>;
@@ -30,6 +44,7 @@ export type CatchupWire = {
       }[];
       "saved": {
         "createdAt": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_get"]>>>, ["createdAt"]>>;
+        "drawing": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_get"]>>>, ["drawing"]>>;
         "message": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["item"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Messaging"]["_get"]>[0], ["message"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Bookmarking"]["_saved"]>>>, ["item"]>]>>;
         "recipient": Jsonify<AllOf<[AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>>, ["user"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Bookmarking"]["_saved"]>[0], ["person"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["recipient"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Messaging"]["_addressedTo"]>[0], ["user"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Messaging"]["_sent"]>[0], ["user"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_name"]>[0], ["user"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_get"]>>>, ["recipient"]>]>>;
         "recipientUsername": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_name"]>>>, ["username"]>>;
@@ -39,6 +54,7 @@ export type CatchupWire = {
       }[];
       "sent": {
         "createdAt": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_sent"]>>>, ["createdAt"]>>;
+        "drawing": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_sent"]>>>, ["drawing"]>>;
         "message": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["item"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_sent"]>>>, ["message"]>]>>;
         "recipient": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["recipient"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_name"]>[0], ["user"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_sent"]>>>, ["recipient"]>]>>;
         "recipientUsername": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_name"]>>>, ["username"]>>;
@@ -123,6 +139,18 @@ export type CatchupWire = {
     };
     error: { error: AppWideError | "INVALID_CREDENTIALS" | "INVALID_INPUT" | "INVALID_MESSAGE_TEXT" | "MESSAGE_TO_SELF" | "RECIPIENT_NOT_FOUND" };
   };
+  "/catchup/sendDrawing": {
+    input: {
+      "drawing": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Messaging"]["sendDrawing"]>[0], ["drawing"]>>;
+      "password": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["password"]>>;
+      "recipientUsername": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_byUsername"]>[0], ["username"]>>;
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["username"]>>;
+    };
+    output: {
+      "message": Jsonify<AllOf<[AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["sendDrawing"]>>, ["message"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["item"]>]>>;
+    };
+    error: { error: AppWideError | "INVALID_CREDENTIALS" | "INVALID_DRAWING" | "INVALID_INPUT" | "MESSAGE_TO_SELF" | "RECIPIENT_NOT_FOUND" };
+  };
   "/catchup/startCatchup": {
     input: {
       "password": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["password"]>>;
@@ -144,6 +172,7 @@ export type CatchupWire = {
     output: {
       "record": {
         "createdAt": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_get"]>>>, ["createdAt"]>>;
+        "drawing": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_get"]>>>, ["drawing"]>>;
         "message": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["item"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Messaging"]["_get"]>[0], ["message"]>]>>;
         "recipient": Jsonify<AllOf<[AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>>, ["user"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["recipient"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_name"]>[0], ["user"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_get"]>>>, ["recipient"]>]>>;
         "recipientUsername": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_name"]>>>, ["username"]>>;
@@ -159,6 +188,19 @@ export type CatchupWire = {
 export type HttpAppWideError = never;
 
 export type CatchupWireHttp = {
+  "/catchup/checkUsername": {
+    input: {
+      "password": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["password"]>>;
+      "recipientUsername": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_byUsername"]>[0], ["username"]>>;
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["username"]>>;
+    };
+    output: {
+      "exists": true;
+    } | {
+      "exists": false;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
   "/catchup/dashboard": {
     input: {
       "password": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["password"]>>;
@@ -167,6 +209,7 @@ export type CatchupWireHttp = {
     output: {
       "incoming": {
         "createdAt": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_addressedTo"]>>>, ["createdAt"]>>;
+        "drawing": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_addressedTo"]>>>, ["drawing"]>>;
         "message": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["item"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_addressedTo"]>>>, ["message"]>]>>;
         "recipient": Jsonify<AllOf<[AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>>, ["user"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["recipient"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Messaging"]["_addressedTo"]>[0], ["user"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_name"]>[0], ["user"]>]>>;
         "recipientUsername": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_name"]>>>, ["username"]>>;
@@ -176,6 +219,7 @@ export type CatchupWireHttp = {
       }[];
       "saved": {
         "createdAt": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_get"]>>>, ["createdAt"]>>;
+        "drawing": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_get"]>>>, ["drawing"]>>;
         "message": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["item"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Messaging"]["_get"]>[0], ["message"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Bookmarking"]["_saved"]>>>, ["item"]>]>>;
         "recipient": Jsonify<AllOf<[AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>>, ["user"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Bookmarking"]["_saved"]>[0], ["person"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["recipient"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Messaging"]["_addressedTo"]>[0], ["user"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Messaging"]["_sent"]>[0], ["user"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_name"]>[0], ["user"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_get"]>>>, ["recipient"]>]>>;
         "recipientUsername": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_name"]>>>, ["username"]>>;
@@ -185,6 +229,7 @@ export type CatchupWireHttp = {
       }[];
       "sent": {
         "createdAt": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_sent"]>>>, ["createdAt"]>>;
+        "drawing": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_sent"]>>>, ["drawing"]>>;
         "message": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["item"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_sent"]>>>, ["message"]>]>>;
         "recipient": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["recipient"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_name"]>[0], ["user"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_sent"]>>>, ["recipient"]>]>>;
         "recipientUsername": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_name"]>>>, ["username"]>>;
@@ -269,6 +314,18 @@ export type CatchupWireHttp = {
     };
     error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
   };
+  "/catchup/sendDrawing": {
+    input: {
+      "drawing": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Messaging"]["sendDrawing"]>[0], ["drawing"]>>;
+      "password": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["password"]>>;
+      "recipientUsername": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_byUsername"]>[0], ["username"]>>;
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["username"]>>;
+    };
+    output: {
+      "message": Jsonify<AllOf<[AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["sendDrawing"]>>, ["message"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["item"]>]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
   "/catchup/startCatchup": {
     input: {
       "password": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["password"]>>;
@@ -290,6 +347,7 @@ export type CatchupWireHttp = {
     output: {
       "record": {
         "createdAt": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_get"]>>>, ["createdAt"]>>;
+        "drawing": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_get"]>>>, ["drawing"]>>;
         "message": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["item"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Messaging"]["_get"]>[0], ["message"]>]>>;
         "recipient": Jsonify<AllOf<[AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>>, ["user"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Holding"]["_status"]>[0], ["recipient"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_name"]>[0], ["user"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Messaging"]["_get"]>>>, ["recipient"]>]>>;
         "recipientUsername": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["_name"]>>>, ["username"]>>;
