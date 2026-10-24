@@ -1,4 +1,11 @@
-node_modules/
+# Dependencies, including node_modules links created by local tools.
+node_modules
+# Temporary document-generation files.
+**/.build/
+# Keep screen recordings locally and submit a hosted video link.
+*.mov
+*.mp4
+*.webm
 *.tsbuildinfo
 *.log
 .env
