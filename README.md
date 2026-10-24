@@ -9,13 +9,11 @@ Catchup is a private space for existing friends to exchange non-urgent messages,
 ## P3 deliverables
 
 - [Updated user journey](user_journey.md)
-- [Two-minute recording script](docs/p3-recording-script.md) — preparation for the student's narrated video, which is still to be recorded and linked
-- Visual design study — being prepared in `docs/visual-design/`
-- [Production setup and deployment checklist](docs/deployment.md) — target: [catch-up.mit-sdg.dev](https://catch-up.mit-sdg.dev/); retry pending after the initial source-file rejection
+- [demo](P3demo.mov)
+- [Visual design study](visual_design_study.pptx)
+- [catch-up.mit-sdg.dev](https://catch-up.mit-sdg.dev/)
 - [P3 automated validation results](docs/validation/README.md) — 89 passing tests, including 45 drawing tests, with saved output and limits
-- [Design notebook in the individual repository](https://github.com/niheyang/6.1040/blob/main/project/design_notebook.md) — local draft; available after that repository is committed and pushed
-
-The code, journey, study, and saved test output belong in this project repository. The current design notebook belongs in the separate individual repository, as the [P3 brief](https://61040.github.io/fa26/assignments/p3/) requires. The older [P2 design notes](design_notes.md) remain here as a historical record. Deployment, video, commit links, and final Commons submission remain pending until completed.
+- [Design notebook in the individual repository](https://github.com/niheyang/6.1040/blob/main/design_notes.md)
 
 ## Contents
 
