@@ -96,16 +96,3 @@ export function getSearchTarget(
   const username = rawQuery.trim().toLowerCase().replace(/^@/, "");
   return results.find(result => result.username === username);
 }
-
-// Message-content matches must not suppress the option to contact a new friend.
-export function getNewChatUsername(
-  conversations: readonly Conversation[],
-  rawQuery: string,
-  ownUsername: string,
-): string | null {
-  const username = rawQuery.trim().toLowerCase().replace(/^@/, "");
-  if (!/^[a-z0-9_]{3,24}$/.test(username)) return null;
-  if (username === ownUsername.trim().toLowerCase().replace(/^@/, "")) return null;
-  if (conversations.some(conversation => conversation.username === username)) return null;
-  return username;
-}

@@ -16,44 +16,21 @@
   --accent-soft: #e1edf9;
   --link: #08627d;
   --sky: #6db9d5;
-  --brand-dot: #0b7892;
   --primary: #f4d85a;
   --primary-hover: #e6c746;
   --primary-ink: #173247;
-  --secondary-hover: #deeff5;
-  --receiving: #daf0f7;
-  --receiving-line: #b3d7e4;
-  --receiving-open: #eef5d5;
-  --receiving-open-line: #c9dda0;
-  --window-pill: #f6fcfe;
-  --window-pill-ink: #315b73;
-  --open-pill: #d4e7a3;
-  --open-pill-ink: #375113;
-  --tab-active: #072e74;
-  --tab-active-ink: #ffffff;
-  --pending: #fff8d8;
-  --pending-ink: #65551c;
-  --available: #dff1f7;
   --available-ink: #21566b;
   --saved: #f9e4ee;
   --saved-ink: #843d64;
   --error: #fff0f3;
   --error-ink: #8f3350;
-  --error-line: #e4afc0;
-  --notice: #e5f2f7;
-  --notice-ink: #24526b;
-  --notice-line: #bad8e6;
   --focus: #126c9b;
   --selection: #d5e891;
   --selection-ink: #16354d;
   --search-highlight: #f9e7a3;
   --search-highlight-ink: #493b16;
-  --shadow: 0 4px 20px #0d466309;
-  --shadow-small: 0 2px 8px #0d46630a;
   --thread-bg: #f3f9fb;
-  --bubble-in: #ffffff;
   --bubble-out: #deedf9;
-  --bubble-out-line: #bad4e8;
   color: var(--ink);
   background: var(--bg);
 }
@@ -72,44 +49,21 @@
   --accent-soft: #23495f;
   --link: #9bd8ed;
   --sky: #6db9d5;
-  --brand-dot: #c7df4c;
   --primary: #f4d85a;
   --primary-hover: #e6c746;
   --primary-ink: #162d3b;
-  --secondary-hover: #23495f;
-  --receiving: #183f55;
-  --receiving-line: #345e74;
-  --receiving-open: #263d37;
-  --receiving-open-line: #536d44;
-  --window-pill: #234d64;
-  --window-pill-ink: #d0edf6;
-  --open-pill: #405b32;
-  --open-pill-ink: #d7efa1;
-  --tab-active: #87cde3;
-  --tab-active-ink: #102e42;
-  --pending: #493f27;
-  --pending-ink: #f6df9d;
-  --available: #224c60;
   --available-ink: #b4e6f4;
   --saved: #493347;
   --saved-ink: #f5c8df;
   --error: #402e42;
   --error-ink: #ffd6e4;
-  --error-line: #70516d;
-  --notice: #173f52;
-  --notice-ink: #b6e2f0;
-  --notice-line: #38667a;
   --focus: #b2e5f5;
   --selection: #526c37;
   --selection-ink: #f0f9df;
   --search-highlight: #66522b;
   --search-highlight-ink: #fff0bf;
-  --shadow: 0 4px 20px #020f1b26;
-  --shadow-small: 0 2px 8px #020f1b1c;
   --thread-bg: #102a3d;
-  --bubble-in: #19384e;
   --bubble-out: #23495f;
-  --bubble-out-line: #3c6378;
 }
 
 * { box-sizing: border-box; }
@@ -151,14 +105,9 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 textarea { display: block; resize: vertical; min-height: 144px; }
 .auth-form label:not(:first-child) { margin-top: 21px; }
 .field-hint { color: var(--muted); font-size: 12px; margin-top: 8px; line-height: 1.6; }
-.primary-button, .secondary-button { min-height: 46px; display: inline-flex; justify-content: center; align-items: center; border-radius: 6px; padding: 12px 17px; border: none; font-size: 15px; font-weight: 650; line-height: 1.4; }
-.primary-button { background: var(--primary); color: var(--primary-ink); }
+.primary-button { min-height: 46px; display: inline-flex; justify-content: center; align-items: center; border-radius: 6px; padding: 12px 17px; border: none; font-size: 15px; font-weight: 650; line-height: 1.4; background: var(--primary); color: var(--primary-ink); }
 .primary-button:hover:not(:disabled) { background: var(--primary-hover); }
-.secondary-button { background: var(--paper); color: var(--accent); }
-.secondary-button:hover:not(:disabled) { background: var(--secondary-hover); }
-.full-width { width: 100%; }
 .auth-submit { width: 100%; margin-top: 27px; }
-.auth-footnote { font-size: 13px; line-height: 1.6; color: var(--muted); margin-top: 21px; }
 
 .dashboard-layout {padding: 0 0 36px;}
 .feedback-stack { display: grid; gap: 8px; margin-bottom: 18px; }
@@ -181,16 +130,11 @@ textarea { display: block; resize: vertical; min-height: 144px; }
 .chat-search-submit svg { width: 19px; height: 19px; }
 .chat-form-error { margin-top: 9px; font-size: 12px; line-height: 1.6; color: var(--error-ink); }
 .conversation-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px 0; }
-.start-chat-option { display: flex; align-items: center; gap: 9px; width: 100%; padding: 13px 16px; border: none; background: var(--surface-soft); color: var(--link); text-align: left; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
-.start-chat-option svg { width: 18px; height: 18px; flex-shrink: 0; }
-.start-chat-option:hover:not(:disabled) { background: var(--accent-soft); }
-.start-chat-option:focus-visible { outline-offset: -4px; }
 .conversation-empty { padding: 23px 21px; font-size: 15px; line-height: 1.7; color: var(--muted); }
 .conversation-row { display: flex; align-items: center; width: 100%; gap: 12px; background: transparent; color: var(--ink); padding: 16px; border: none; text-align: left; }
 .conversation-row:hover { background: var(--surface-soft); }
 .conversation-row.selected { background: var(--accent-soft); }
 .conversation-row:focus-visible { outline-offset: -4px; }
-.friend-avatar { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--available); color: var(--available-ink); font-size: 18px; font-weight: 600; }
 .conversation-details { min-width: 0; flex: 1; }
 .conversation-row-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 9px; margin-bottom: 5px; }
 .conversation-row-heading strong { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 650; }
@@ -258,7 +202,6 @@ textarea { display: block; resize: vertical; min-height: 144px; }
   .conversation-tools { padding-inline: 17px; }
   .conversation-row { gap: 10px; padding-inline: 13px; }
   .thread-header { padding-inline: 18px; }
-  .thread-avatar { width: 35px; height: 35px; }
   .thread-header h2 { font-size: 18px; }
   .thread-messages { padding: 20px; }
 }
@@ -278,7 +221,6 @@ textarea { display: block; resize: vertical; min-height: 144px; }
 @media (max-width: 540px) {
   .app-shell { padding: 0 14px; }
   .site-header {min-height: 56px; gap: 14px 18px; padding: 6px 0; }
-  .brand { font-size: 30px; }
   .header-actions { flex: 1 1 auto; gap: 10px 14px; }
   .account-controls { gap: 8px 13px; }
   .signed-in-user { font-size: 13px; }
@@ -293,7 +235,6 @@ textarea { display: block; resize: vertical; min-height: 144px; }
   .conversation-tools { padding: 20px 18px; }
   .conversation-row { padding: 18px 16px; }
   .thread-header { padding: 15px 14px; gap: 9px; min-height: 74px; }
-  .thread-avatar { display: none; }
   .thread-header h2 { font-size: 16px; }
   .chat-back { width: 28px; flex-shrink: 0; }
   .chat-back span { display: none; }

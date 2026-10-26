@@ -6,7 +6,7 @@ import DoodlePad from "./DoodlePad.vue";
 import SearchHighlight from "./SearchHighlight.vue";
 import ToastNotice from "./ToastNotice.vue";
 import { buildConversations } from "./conversations.ts";
-import { getNewChatUsername, getSearchTarget, searchConversations } from "./search.ts";
+import { getSearchTarget, searchConversations } from "./search.ts";
 import { useTheme } from "./theme.ts";
 import { api, describeError, isApiError, type Credentials, type Dashboard, type MessageRow } from "./api.ts";
 import type { Drawing } from "../../src/shared/drawing.ts";
@@ -49,7 +49,6 @@ const savedIds = computed(() => new Set(dashboard.value.saved.map((message) => m
 const conversations = computed(() => buildConversations(dashboard.value, draftUsernames.value));
 const filteredConversations = computed(() => searchConversations(conversations.value, chatSearch.value));
 const searchTarget = computed(() => getSearchTarget(filteredConversations.value, chatSearch.value));
-const newChatCandidate = computed(() => getNewChatUsername(conversations.value, chatSearch.value, credentials.value?.username ?? ""));
 const searchHint = computed(() => {
   if (checkingUsername.value) return "Checking username…";
   if (!chatSearch.value.trim()) return "Search names or messages. Enter a username to start a chat.";

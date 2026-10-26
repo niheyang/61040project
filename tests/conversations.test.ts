@@ -15,7 +15,7 @@ function emptyDashboard(): Dashboard {
 }
 
 describe("friend conversation model", () => {
-  test("combines both directions into one chronological thread with original identities and delivery states", () => {
+  test("combines both directions into one chronological thread with delivery states", () => {
     const dashboard = emptyDashboard();
     dashboard.incoming = [message("reply", "bob", "alice", 2)];
     dashboard.sent = [
@@ -24,7 +24,6 @@ describe("friend conversation model", () => {
     ];
     const [conversation] = buildConversations(dashboard);
     expect(conversation?.username).toBe("bob");
-    expect(conversation?.user).toBe("bob-id");
     expect(conversation?.messages.map(row => [row.message, row.direction, row.status])).toEqual([
       ["first", "outgoing", "RELEASED"], ["reply", "incoming", undefined], ["follow-up", "outgoing", "PENDING"],
     ]);
@@ -48,7 +47,7 @@ describe("friend conversation model", () => {
     dashboard.incoming = [message("known", "bob", "alice", 1)];
     const conversations = buildConversations(dashboard, [" BOB ", "carol", "CAROL", "invalid name"]);
     expect(conversations.map(row => row.username)).toEqual(["carol", "bob"]);
-    expect(conversations[0]).toMatchObject({ user: null, messages: [], lastMessage: null, lastAt: null });
+    expect(conversations[0]).toMatchObject({ messages: [], lastMessage: null, lastAt: null });
     expect(conversations[1]?.messages.map(row => row.message)).toEqual(["known"]);
     expect(buildConversations(emptyDashboard())).toEqual([]);
   });

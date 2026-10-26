@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { buildConversations, type ChatMessage, type Conversation } from "../web/src/conversations.ts";
-import { getNewChatUsername, getSearchTarget, highlightMatches, searchConversations } from "../web/src/search.ts";
+import { getSearchTarget, highlightMatches, searchConversations } from "../web/src/search.ts";
 
 function message(id: string, text: string, minute: number): ChatMessage {
   return {
@@ -12,7 +12,7 @@ function message(id: string, text: string, minute: number): ChatMessage {
 
 function conversation(username: string, messages: ChatMessage[] = []): Conversation {
   const lastMessage = messages.at(-1) ?? null;
-  return { username, user: `${username}-id`, messages, lastMessage, lastAt: lastMessage?.createdAt ?? null };
+  return { username, messages, lastMessage, lastAt: lastMessage?.createdAt ?? null };
 }
 
 describe("conversation search", () => {
@@ -118,13 +118,11 @@ describe("literal match highlighting", () => {
 });
 
 describe("finding a conversation or starting a new chat", () => {
-  test("keeps a new username available when another conversation contains that name", () => {
+  test("a content match does not become the target for a different username", () => {
     const chats = [conversation("alice", [message("mention", "Charlie recommended this", 1)])];
     const results = searchConversations(chats, "charlie");
     expect(results[0]?.username).toBe("alice");
     expect(getSearchTarget(results, "charlie")).toBeUndefined();
-    expect(getNewChatUsername(chats, "charlie", "bob")).toBe("charlie");
-    expect(getNewChatUsername(chats, "  @CHARLIE  ", "bob")).toBe("charlie");
   });
 
   test("Enter looks up an exact username with or without @ despite content matches", () => {
@@ -146,16 +144,5 @@ describe("finding a conversation or starting a new chat", () => {
     const results = searchConversations(chats, "charlie");
     expect(getSearchTarget(results, "CHARLIE")?.username).toBe("charlie");
     expect(getSearchTarget(results, " @Charlie ")?.username).toBe("charlie");
-    expect(getNewChatUsername(chats, "charlie", "bob")).toBeNull();
-    expect(getNewChatUsername(chats, "@CHARLIE", "bob")).toBeNull();
-  });
-
-  test("offers only valid, non-self, not-yet-existing usernames", () => {
-    const chats = [conversation("alice")];
-    for (const invalid of ["", "  ", "@", "ab", "a".repeat(25), "charlie!", "first last", "中文名", "@@charlie", "bob", " @BOB "]) {
-      expect(getNewChatUsername(chats, invalid, "bob")).toBeNull();
-    }
-    expect(getNewChatUsername(chats, " @SAM_123 ", "bob")).toBe("sam_123");
-    expect(getNewChatUsername(chats, "x".repeat(24), "bob")).toBe("x".repeat(24));
   });
 });

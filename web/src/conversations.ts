@@ -7,7 +7,6 @@ export type ChatMessage = MessageRow & {
 
 export interface Conversation {
   username: string;
-  user: string | null;
   messages: ChatMessage[];
   lastMessage: ChatMessage | null;
   lastAt: string | null;
@@ -26,7 +25,7 @@ export function buildConversations(
     const canonical = username.trim().toLowerCase();
     let conversation = conversations.get(canonical);
     if (!conversation) {
-      conversation = { username: canonical, user: null, messages: [], lastMessage: null, lastAt: null };
+      conversation = { username: canonical, messages: [], lastMessage: null, lastAt: null };
       conversations.set(canonical, conversation);
       messages.set(canonical, new Map());
     }
@@ -40,12 +39,10 @@ export function buildConversations(
 
   for (const row of dashboard.incoming) {
     const conversation = conversationFor(row.senderUsername);
-    conversation.user = row.sender;
     messages.get(conversation.username)!.set(row.message, { ...row, direction: "incoming" });
   }
   for (const row of dashboard.sent) {
     const conversation = conversationFor(row.recipientUsername);
-    conversation.user = row.recipient;
     messages.get(conversation.username)!.set(row.message, { ...row, direction: "outgoing" });
   }
 
