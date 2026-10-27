@@ -58,7 +58,7 @@ are a stable logical size; the same note can be displayed at a smaller physical
 size on a phone.
 
 The `/api/catchup/sendDrawing` request is defined in
-[`src/compositions/Catchup.ts`](../src/compositions/Catchup.ts). It authenticates
+[`src/compositions/messages.ts`](../src/compositions/messages.ts). It authenticates
 the sender, finds the recipient's exact username, and calls `Messaging.sendDrawing`.
 Request validation rejects unknown fields, unsupported colors, invalid points,
 blank drawings, and excessive data. The limit is 120 strokes, 3,000 points, and
@@ -68,14 +68,16 @@ so direct internal calls receive the same protection.
 [`Messaging.ts`](../src/concepts/Messaging.ts) saves the message in MongoDB's
 existing `messaging_messages` collection. A text message has `text` plus
 `drawing: null`; a drawing message has empty `text` plus its drawing data. Existing
-text records without a `drawing` field are read as `drawing: null`, so no database
-reset or migration is needed.
+text records without a `drawing` field are read as `drawing: null`; adding drawings
+does not require changing those records. The separate Receiving storage upgrade
+is described in the [deployment guide](deployment.md#upgrade-an-existing-database-once).
 
 ## 4. Catch-up still decides when a drawing becomes visible
 
-`HoldDrawing` enqueues the new message ID in Holding. The same release reactions
-used for text make it available when the recipient opens a catch-up window, or
-immediately if that window is already open. Pending incoming drawing data is
+`HoldDrawing` enqueues the new message ID in Receiving. Its atomic enqueue action
+makes the item available if the recipient's window is open; otherwise it remains
+pending until `Receiving.open` releases it. Text uses the same actions. The send
+endpoint waits for enrollment before reporting success. Pending incoming drawing data is
 excluded from the recipient's dashboard. There is no separate public image URL
 that bypasses this rule. The sender can still see their own drawing and its
 Waiting/Available status.

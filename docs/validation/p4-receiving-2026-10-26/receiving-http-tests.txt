@@ -1,0 +1,54 @@
+Started (America/New_York): 2026-10-26T23:48:07.832453-04:00
+Command: bun test tests/receiving.test.ts tests/http.test.ts tests/drawing-http.test.ts
+Base Git commit: 871bfd81e1e34ea054a110eb07095a6981d5b0df
+Source: uncommitted working tree; see source-manifest.sha256.
+Database tests use isolated catchup-test-UUID databases on local MongoDB.
+
+bun test v1.4.2 (744846f84)
+
+tests/http.test.ts:
+(pass) Catchup HTTP composition > an unfinished request body does not block an unrelated request [464.78ms]
+(pass) Catchup HTTP composition > accounts authenticate and failures cannot mutate someone else's inbox [2132.74ms]
+(pass) Catchup HTTP composition > exact username checks authenticate and reveal only existence without releasing held messages [2719.23ms]
+(pass) Catchup HTTP composition > username checks reject malformed or spoofed input without mutating state [1119.47ms]
+(pass) Catchup HTTP composition > the complete journey holds messages, releases them on demand, and keeps saved content after closing [3850.25ms]
+(pass) Catchup HTTP composition > message and window authorization are checked on the server [2235.74ms]
+(pass) Catchup HTTP composition > two-way conversations keep receiving windows independent and held arrivals invisible [3616.25ms]
+(pass) Catchup HTTP composition > the exact 15-minute deadline stops release before any cleanup timer runs [1497.77ms]
+(pass) Catchup HTTP composition > closing a stale window handle cannot end its replacement [1503.55ms]
+(pass) Catchup HTTP composition > concurrent sending and opening leaves no message stranded while receiving is open [1483.84ms]
+(pass) Catchup HTTP composition > a new application instance reads persisted identities, delivery, and bookmarks [1858.40ms]
+(pass) Catchup HTTP composition > malformed JSON, wrong field types, and spoofed identity fields fail without mutation [1350.16ms]
+
+tests/receiving.test.ts:
+(pass) Receiving > opening releases held items, arrivals receive only while open, and closing preserves released history [37.13ms]
+(pass) Receiving > the exact deadline denies arrivals before expiry cleanup, and expiry preserves delivery state [30.24ms]
+(pass) Receiving > stale, unknown, or another person's close and expiry cannot remove a replacement window [21.39ms]
+(pass) Receiving > concurrent first enqueues across raw instances preserve every item and deduplicate repeated handles [56.33ms]
+(pass) Receiving > an open racing with enqueues across raw instances leaves no pending item stranded [28.17ms]
+(pass) Receiving > simultaneous openings across raw instances leave one current handle that stale closes cannot remove [31.67ms]
+(pass) Receiving > a close committed before an enqueue's storage write prevents a stale open check from releasing it [18.18ms]
+(pass) Receiving > an open delayed before its storage write includes an item enqueued by another instance meanwhile [17.91ms]
+(pass) Receiving > simultaneous close and enqueue permit either atomic order while a later arrival remains pending [22.56ms]
+(pass) Receiving > opaque dollar-prefixed identities remain literal values in database expressions [19.21ms]
+(pass) Receiving > the default database clock recognizes a window that expired without host cleanup [22.69ms]
+
+tests/drawing-http.test.ts:
+(pass) drawing HTTP journeys > drawings stay hidden alongside released text, then follow opening, arrival, and closing [2982.55ms]
+(pass) drawing HTTP journeys > pending and third-party drawings cannot be fetched or saved through guessed IDs [2326.18ms]
+(pass) drawing HTTP journeys > malformed drawings are refused without changing messages, receiving, or any actor's dashboard [1384.07ms]
+(pass) drawing HTTP journeys > wrong credentials, missing recipients, self sends, and spoofed fields cannot create drawings [1919.19ms]
+(pass) drawing HTTP journeys > a drawing at the request-body limit succeeds and one extra byte fails without mutation [1505.34ms]
+(pass) drawing HTTP journeys > drawing bookmarks are private, idempotent, and removable without erasing conversation history [2308.13ms]
+(pass) drawing HTTP journeys > an application restart preserves drawings, timestamps, bookmarks, and pending privacy [2359.76ms]
+(pass) drawing HTTP journeys > drawings stop releasing at the exact deadline before expiry cleanup [1775.88ms]
+(pass) drawing HTTP journeys > concurrent drawing and opening releases each message exactly once [1358.25ms]
+(pass) drawing HTTP journeys > overlapping drawing and close requests obey atomic receiving order; later arrivals stay hidden [2586.98ms]
+
+ 33 pass
+ 0 fail
+ 992 expect() calls
+Ran 33 tests across 3 files. [44.78s]
+
+Exit code: 0
+Elapsed seconds: 44.80

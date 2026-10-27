@@ -20,11 +20,11 @@ You must sign in again after reloading because the Vue app keeps credentials onl
 
 While reception is closed, **Check for updates** reports either **New messages are waiting.** or **Nothing new yet.** The answer disappears after eight seconds. It is a snapshot requested by that click and is not refreshed by dashboard polling. Opening a window, signing out, or leaving the app clears the answer and ignores any late response.
 
-[`CatchupTimer.vue`](../web/src/CatchupTimer.vue) emits the button event, and [`App.vue`](../web/src/App.vue) calls the authenticated `/api/catchup/checkUpdates` endpoint. The endpoint obtains the acting identity from authentication and calls [`Holding._hasPending`](../src/concepts/Holding.ts), which checks for one pending entry in MongoDB and returns only a boolean. It performs no writes and never opens a window or releases a message. Message counts, identities, sender names, and content remain hidden.
+[`CatchupTimer.vue`](../web/src/CatchupTimer.vue) emits the button event, and [`App.vue`](../web/src/App.vue) calls the authenticated `/api/catchup/checkUpdates` endpoint in [`reception.ts`](../src/compositions/reception.ts). It obtains the acting identity from authentication and calls [`Receiving._hasPending`](../src/concepts/Receiving.ts), which returns only a boolean. It performs no writes and never opens a window or releases a message. Message counts, identities, sender names, and content remain hidden.
 
 ## Supported features
 
-This MVP demonstrates three product behaviors: capture a share, choose when to receive it, and keep a received message for later. The P3 interface groups the exchange into one conversation per friend, with incoming and outgoing bubbles, a targeted composer, conversation search, and a private saved-message filter.
+Catchup supports three product behaviors: capture a share, choose when to receive it, and keep a received message for later. The interface groups the exchange into one conversation per friend, with incoming and outgoing bubbles, a targeted composer, conversation search, and a private saved-message filter.
 
 Start a conversation by an existing friend's username. **Find or start a chat** filters existing conversations by username or typed message content, ignoring case. Clicking a result opens that conversation at its matching message. Enter or the plus button opens or starts a chat with the exact username, after checking the account exists. An optional leading `@` is accepted. A username mentioned in another conversation does not redirect the Enter action to that content match. Missing accounts produce an error without creating an empty chat. Drawings have a **[Drawing]** preview; their handwriting is not searched or recognized.
 
@@ -46,31 +46,41 @@ See the [handwriting implementation walkthrough](handwriting.md) for the data fl
 
 ### Step 2: Give each concept its own state
 
-The five independent concept implementations live in [`src/concepts/`](../src/concepts), with strict specifications in [`design/concepts/`](../design/concepts). Each receives a MongoDB database and owns separate collections. Concepts do not import or call one another.
+The four concept implementations live in [`src/concepts/`](../src/concepts), with specifications in [`design/concepts/`](../design/concepts). Each owns its database state. Concepts do not import or call one another.
 
 | Concept | Responsibility |
 | --- | --- |
 | PasswordAuthenticating | Register accounts, store Argon2id password hashes, and return a stable authenticated user identity |
 | Messaging | Preserve text or drawing content, sender, recipient, and original creation time |
-| Holding | Keep opaque message handles pending or released; repeated enqueue/release is harmless |
-| Receptivity | Manage explicit 15-minute receiving windows and safely replace or close them |
+| Receiving | Own each recipient's 15-minute window and the pending/released status of opaque message handles |
 | Bookmarking | Keep a private, idempotent list of opaque message handles |
 
-Unique database indexes prevent duplicate usernames, holding entries, and bookmarks. Receptivity checks the trusted server clock whenever readiness is queried; release stops at the deadline even if the cleanup timer runs late. Old close/expiry handles cannot end a replacement window.
+Unique database indexes prevent duplicate usernames, recipient records, and bookmarks. Receiving also checks whether an item already exists before enqueueing it, so repeats preserve its status.
 
-### Step 3: Connect the concepts with reactions
+Receiving stores a recipient's window and availability entries together in one `receiving_recipients` document. MongoDB changes that document atomically: another action cannot observe half of the change. `enqueue` checks the window deadline and records the arriving item's status in the same write. `open` creates a fresh window and releases all pending entries in the same write. `close` requires the recipient and exact window handle; expiry checks the handle and deadline. An old close or expiry cannot end a replacement window.
 
-[`src/compositions/Catchup.ts`](../src/compositions/Catchup.ts) expresses the application rules in the course's sync-engine DSL:
+Production decisions use MongoDB's `$$NOW` within these operations, so a late cleanup timer cannot extend reception. Tests can inject a deterministic clock. Concurrent actions for one recipient take effect in the order MongoDB applies their writes; HTTP arrival order does not guarantee that order.
 
-- A message creation triggers enqueueing in Holding.
-- Opening reception triggers release of pending items.
-- Enqueueing during an open window triggers release of that item.
-- A received message is returned only when it belongs to the authenticated recipient and has been released.
-- Saving requires the same ownership and release checks.
+### Step 3: Connect the concepts
+
+[`src/compositions/Catchup.ts`](../src/compositions/Catchup.ts) combines small modules rather than containing every application rule:
+
+| Module | Responsibility |
+| --- | --- |
+| [`authentication.ts`](../src/compositions/authentication.ts) | Registration, sign-in, and username lookup |
+| [`messages.ts`](../src/compositions/messages.ts) | Authenticate sends and enqueue created text/drawing messages in Receiving |
+| [`reception.ts`](../src/compositions/reception.ts) | Open or close reception and answer explicit update checks |
+| [`bookmarks.ts`](../src/compositions/bookmarks.ts) | Authorize saving, removing, and opening messages |
+| [`dashboard.ts`](../src/compositions/dashboard.ts) | Return the signed-in user's dashboard |
+| [`views.ts`](../src/compositions/views.ts) | Combine message ownership, release status, and private bookmarks |
+
+A message creation triggers `Receiving.enqueue`. The send endpoint waits for its own reaction flow and confirms that the item has been enrolled before reporting success. Content creation and enrollment are separate actions, so they are not one database transaction: an enrollment failure does not roll back the stored content and could leave a sender's record without a corresponding receiving entry. Opening reception needs no separate release reaction because Receiving owns the complete decision.
 
 Every protected endpoint authenticates its credentials. The acting identity comes from authentication, and request validation rejects additional fields such as a spoofed sender. Dashboard responses include authorized incoming messages, the user's own sent records, their private saved list, and their own active window. They include no pending incoming count or previews.
 
-[`src/server.ts`](../src/server.ts) serializes complete request flows in this local backend process and waits for reactions to finish. This prevents a close operation from slipping between a release's readiness check and its action. Multiple backend replicas would require shared coordination; the current MVP runs one backend process.
+[`src/server.ts`](../src/server.ts) connects HTTP requests to the application and marks private responses `Cache-Control: no-store`. It has no request queue or readiness/release rule. Periodic expiry calls the Receiving action; the database operations enforce the rule even when different application instances share a database. [Upgrade instructions](deployment.md#upgrade-an-existing-database-once) cover conversion from the retired Holding/Receptivity storage.
+
+The recipient document contains message IDs and status, not drawing content. This makes the shared decision straightforward, but its growing entry array and the dashboard's full-history loading suit a small project. Large histories would need a bounded storage and pagination design before approaching MongoDB's document-size limit.
 
 [`design/types.md`](../design/types.md) binds opaque concept types; [`design/compositions/Catchup.md`](../design/compositions/Catchup.md) explains the authored composition. [`src/assembly.ts`](../src/assembly.ts) assembles the concepts and composition. [`generated/wire.ts`](../generated/wire.ts) is generated from that assembly and describes the API's inputs and outputs. Regenerate it after changing the application contract with `bun run generate`.
 

@@ -2,13 +2,14 @@
 
 Catchup lets friends exchange non-urgent text messages, links, and handwritten drawings. Recipients choose when new messages appear by opening a 15-minute catch-up window; previously released conversations remain accessible afterward.
 
-[Live app](https://catch-up.mit-sdg.dev/) · [P3 narrated demo](https://youtu.be/V-WbEcGa3fw)
+[Live app](https://catch-up.mit-sdg.dev/) · [P4 narrated demo](https://youtu.be/12tqeZzXxic)
 
 Built with **Vue**, **Bun**, **sync-engine**, and **MongoDB** for MIT 6.1040.
 
 ## Project materials
 
 - [User journey](user_journey.md)
+- [P4 design summary and changes since P1](design_summary.md)
 - [Current concept specifications](design/concepts/), [types](design/types.md), and [application reactions](design/compositions/Catchup.md)
 - [Automated validation and saved test output](docs/validation/README.md)
 - [Visual design study](visual_design_study.pptx)
@@ -33,6 +34,8 @@ bun run dev
 
 When updating an existing checkout, keep your existing `.env`. The example configures the local MongoDB connection; `.env` is ignored by Git.
 
+For an existing database, stop older backend processes before starting this version. Startup upgrades the receiving storage once; see [backup and upgrade instructions](docs/deployment.md#upgrade-an-existing-database-once).
+
 Open **[http://127.0.0.1:8080](http://127.0.0.1:8080)**. The command starts MongoDB, the backend on port 3000, and the Vue development server on port 8080. MongoDB uses port 27018 and stores data in a persistent container volume.
 
 Press **Control-C** to stop the development servers. `bun run db:down` stops MongoDB while keeping its data. Use `bun run db:check` or `bun run db:logs` to diagnose database startup problems.
@@ -56,7 +59,7 @@ bun run check
 bun test
 ```
 
-Tests create and remove isolated `catchup-test-<UUID>` databases without clearing the application's data. The latest saved local run on **October 26, 2026** passed **100 tests**; [results and limitations](docs/validation/README.md) distinguish automated checks from browser and deployed-app validation.
+Tests create and remove isolated `catchup-test-<UUID>` databases without clearing the application's data. [Saved results and limitations](docs/validation/README.md) distinguish automated checks from browser and deployed-app validation.
 
 ## Production build
 

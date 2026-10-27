@@ -1,0 +1,31 @@
+Started (America/New_York): 2026-10-26T23:52:34.334186-04:00
+Command: bun test tests/migration.test.ts
+Base Git commit: 871bfd81e1e34ea054a110eb07095a6981d5b0df
+Source: uncommitted working tree; see source-manifest.sha256.
+Database tests use isolated catchup-test-UUID databases on local MongoDB.
+
+bun test v1.4.2 (744846f84)
+
+tests/migration.test.ts:
+(pass) Receiving storage migration > preserves availability, window handles and dates, and unrelated data without opening or releasing anything [114.41ms]
+(pass) Receiving storage migration > rerunning keeps changes made by the new concept and does not repeat the import [75.46ms]
+(pass) Receiving storage migration > an existing recipient is not overwritten when a prior partial import has no completion marker [66.24ms]
+(pass) Receiving storage migration > a fresh database is safely marked complete and repeated runs remain empty [25.83ms]
+(pass) Receiving storage migration > concurrent migration attempts produce one copy of each recipient and one completion marker [93.19ms]
+(pass) Receiving migration refuses a malformed legacy snapshot before writes > an invalid date [37.94ms]
+(pass) Receiving migration refuses a malformed legacy snapshot before writes > a missing date [38.01ms]
+(pass) Receiving migration refuses a malformed legacy snapshot before writes > a numeric date [36.14ms]
+(pass) Receiving migration refuses a malformed legacy snapshot before writes > zero duration [39.94ms]
+(pass) Receiving migration refuses a malformed legacy snapshot before writes > negative duration [38.57ms]
+(pass) Receiving migration refuses a malformed legacy snapshot before writes > multiple windows for one person [42.29ms]
+(pass) Receiving migration refuses a malformed legacy snapshot before writes > an invalid window owner [49.81ms]
+(pass) Receiving migration refuses a malformed legacy snapshot before writes > an invalid holding status [42.95ms]
+(pass) Receiving migration refuses a malformed legacy snapshot before writes > an invalid item identity [38.77ms]
+
+ 14 pass
+ 0 fail
+ 96 expect() calls
+Ran 14 tests across 1 file. [811.00ms]
+
+Exit code: 0
+Elapsed seconds: 0.82

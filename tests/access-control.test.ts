@@ -35,7 +35,7 @@ async function denied(path: string, input: unknown, status: number, error: strin
 
 async function storedState() {
   if (!database) throw new Error("Access-control test DB is not started");
-  const names = ["auth.users", "messaging_messages", "holding_entries", "bookmarking_saved", "receptivity_windows"];
+  const names = ["auth.users", "messaging_messages", "receiving_recipients", "bookmarking_saved"];
   return Promise.all(names.map(name => database!.db.collection(name).find({}).sort({ _id: 1 }).toArray()));
 }
 
@@ -156,7 +156,7 @@ describe("authentication and access-control boundary", () => {
 
   test("internal concept actions and views are not exposed as HTTP routes", async () => {
     const before = await storedState();
-    for (const path of ["Messaging/send", "Messaging/_get", "Holding/release", "Receptivity/open", "catchup/AccessibleMessage"]) {
+    for (const path of ["Messaging/send", "Messaging/_get", "Receiving/enqueue", "Receiving/open", "catchup/AccessibleMessage"]) {
       const response = await request(path, { ...credentials("eve"), person: bob.user, recipient: bob.user });
       expect(response.status).toBe(404);
       expect(await response.json()).toEqual({ error: "NOT_FOUND" });

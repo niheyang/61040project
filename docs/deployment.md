@@ -1,59 +1,48 @@
-# First deployment of Catchup
+# Deploying Catchup
 
-Target app: [catch-up.mit-sdg.dev](https://catch-up.mit-sdg.dev/). The first deployment of commit `8ac2fca` failed before building because a temporary `docs/visual-design/.build/node_modules` link pointed outside the repository. The cleanup removes that generated folder and local recordings from Git tracking while retaining local copies. A successful live deployment has not yet been verified.
-
-Follow the course's [deployment guide](https://61040.github.io/fa26/resources/deploying-apps/). The settings below are specific to this repository, whose Vue source lives in `web/` but whose dependencies and lockfile all live at the repository root.
-
-## Review the production build locally
-
-```sh
-bun run db:up
-bun run check:design
-bun run check
-bun test
-bun run build
-NODE_ENV=production bun run start
-```
-
-Use `bun run dev` for normal local development. The production `start` command must run the Bun backend and serve the files built in `web/dist`; it must not run Podman or Vite's development server. If port 3000 is already in use, stop the older backend or run `PORT=3100 bun run start` and open that port.
-
-Check `/health`, then open the same server's `/` page. Register demonstration accounts, send a share, open a catch-up window, reload, and sign in again to confirm persistence. The frontend must send requests to relative `/api/...` URLs. A successful local run does not establish a successful live deployment.
+App: [catch-up.mit-sdg.dev](https://catch-up.mit-sdg.dev/). The app was successfully deployed during P3; new local commits still need to be deployed and verified separately. Use the course's [deployment guide](https://61040.github.io/fa26/resources/deploying-apps/) with these repository settings.
 
 ## Class-platform settings
 
 | Setting | Value |
 | --- | --- |
 | Repository | `https://github.com/niheyang/61040project` |
-| Branch | `main`, if that is the branch containing the reviewed commit |
-| Runtime | Bun |
-| Package directories | `.` only; `web/` has no separate package manifest or lockfile |
+| Branch | `main`, containing the reviewed commit |
+| Runtime | Bun; `package.json` pins `bun@1.4.2` |
+| Package directories | `.` |
 | Build script | `build` |
 | Start script | `start` |
 | Port | `3000` |
-| Health check | `/health` |
-| Database | Add MongoDB and map its supplied URI to `MONGODB_URL` |
+| Health check path | `/health` |
+| Database variable | `MONGODB_URL`, containing the provisioned MongoDB URI |
 
-The platform provides `HOST`, `PORT`, and `NODE_ENV`. The backend must respect `HOST` and `PORT`. Keep `client.db()` without an explicit database name so the connection string selects the assigned database. Do not upload or paste the local `.env` into Git. The deployed database starts empty; local demonstration data does not move automatically.
+The scripts are names from the root `package.json`. `build` creates `web/dist`; `start` runs the Bun backend, which serves that directory and `/api/...` requests together. Production does not run Podman or Vite. The backend respects the platform's `HOST` and `PORT`, and `client.db()` uses the database assigned in the URI. Never commit `.env` or credentials. Local demonstration data does not transfer automatically to the deployed database.
 
-This version uses username/password authentication on each protected request, with credentials held only in tab memory; reloading requires signing in again. It does not use cookie sessions or read `PUBLIC_ORIGIN`, so that variable is not required by the current implementation. The sync-engine HTTP library's origin check applies to cookie-bound routes; it does not restrict these credential-in-body requests. If authentication later uses cookies, configure the deployed origin as described in the course guide.
+Current authentication sends credentials in each protected request and keeps them in tab memory. Reloading requires sign-in again. This implementation uses no cookie session and does not require `PUBLIC_ORIGIN`.
 
-Local recordings (`*.mov`, `*.mp4`, `*.webm`), temporary `.build/` folders, and `node_modules` directories or links are ignored. Upload recordings to the video host used for submission and put the shared link in the README; `.gitignore` keeps `git add .` from collecting these generated/local files again. Source, specifications, saved validation output, required screenshots, and the visual-design slides remain tracked.
+## Upgrade an existing database once
 
-## Retry deployment and verify
+This version replaces the separate `holding_entries` and `receptivity_windows` collections with `receiving_recipients`. The upgrade preserves pending/released states and window handles, without changing accounts, messages, drawings, or bookmarks.
 
-1. Keep the existing `catch-up` app. A new app is not needed for this repair.
-2. Sign in at [the existing app's settings](https://mit-sdg.dev/apps/2441dda4-5886-4c2c-b735-17034528d545/configuration) and confirm the settings above.
-3. Add MongoDB if it has not been provisioned, and wait for setup to finish. Confirm the connection variable is named `MONGODB_URL`.
-4. Commit and push the reviewed project. Keep all source files in the selected commit together under the platform's 50 MB limit. Link the video instead of committing it.
-5. Pick that exact commit and deploy it. Pushing a commit alone does not deploy it.
-6. Open the public URL and `/health`. Repeat registration, sign-in, sending while closed, explicit catch-up, ending the window, and reload/persistence through the live interface. Check that both themes and the mobile layout load.
-7. Record the live URL and full GitHub commit link in the README and submission. Record unresolved issues in the individual design notebook.
+1. **Stop every backend using the old schema and prevent user traffic during the upgrade.** Locally, stop old development/production servers with Control-C. For deployment, stop the old app or pause its traffic before starting the replacement. Avoid a rolling deployment that leaves old and new writers running together.
+2. **Back up the database** with the host's backup facility or `mongodump`, and keep a restorable copy. Confirm the new process points to the intended database through `MONGODB_URL`.
+3. **Run the upgrade.** Starting `bun run start` automatically calls [`migrateReceiving`](../src/migrations/receiving.ts) before opening the HTTP server. Alternatively, run `bun run db:migrate` with the same database configuration, then start the app. A new empty database is prepared by the same step.
+4. **Verify before resuming traffic.** Check `/health`, sign in with existing accounts, and confirm old released history, pending messages, bookmarks, and window behavior. If migration fails, correct the reported problem before admitting traffic.
 
-## Submission still requires
+The migration validates the legacy records, inserts recipient documents without overwriting existing upgraded documents, and records completion in `schema_migrations` as `receiving-v1`. A completed upgrade is skipped on later starts. The original legacy collections are retained and are no longer used by the new application. They are a historical snapshot, not a continuously updated backup. Do not restart the old backend against this database after new writes begin; it would use different availability state.
 
-- The public project repository and its submitted commit hash.
-- The individual repository containing the updated notebook and its submitted commit hash.
-- The live app URL, running the submitted project commit.
-- The narrated video link, at most two minutes long.
+## Build and verify
 
-Submit those links and hashes through Commons after verifying them. The notebook, a locally built frontend, and a recording script do not substitute for the live app or video.
+For a local production preview, stop any server already using port 3000, then run:
+
+```sh
+bun run db:up
+bun run build
+NODE_ENV=production bun run start
+```
+
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and `/health`. For the class deployment, push the reviewed commit, confirm the settings and database variable in the [existing app settings](https://mit-sdg.dev/apps/2441dda4-5886-4c2c-b735-17034528d545/configuration), and deploy that exact commit. Pushing alone does not deploy it. Follow the upgrade procedure above when replacing an older version.
+
+Through the live interface, verify registration/sign-in, sending while closed, explicit catch-up, receiving during the window, ending reception, drawing messages, bookmarks, and reload/persistence. Confirm that frontend requests use relative `/api/...` URLs and both themes load. Record the deployed commit and any unresolved issues in the submission materials.
+
+Local recordings, temporary `.build/` folders, and `node_modules` are ignored. Keep source, specifications, required design materials, and saved validation evidence tracked. Link the hosted recording rather than committing it, and keep the selected commit within the platform's 50 MB limit.

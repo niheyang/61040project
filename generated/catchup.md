@@ -23,31 +23,9 @@ Defined in [Bookmarking](../design/concepts/Bookmarking.md), line 1.
 
 #### Instances
 
-- `Bookmarking` — instance of `Bookmarking` — [Catchup application types](../design/types.md), line 22.
-  - `Item` is `Messaging.Message` — [Catchup application types](../design/types.md), line 24.
-  - `User` is `PasswordAuthenticating.User` — [Catchup application types](../design/types.md), line 23.
-
-### Holding
-
-Defined in [Holding](../design/concepts/Holding.md), line 1.
-
-#### Actions
-
-- `enqueue(recipient: Recipient, item: Item) : returns (recipient: Recipient, item: Item)`
-- `release(recipient: Recipient, items: ItemBatch) : returns (released: ItemBatch)`
-
-#### Queries
-
-- `_pending(recipient: Recipient) : many (item: Item)`
-- `_hasPending(recipient: Recipient) : one (waiting: Flag)`
-- `_released(recipient: Recipient) : many (item: Item)`
-- `_status(recipient: Recipient, item: Item) : one (status: Status)`
-
-#### Instances
-
-- `Holding` — instance of `Holding` — [Catchup application types](../design/types.md), line 17.
-  - `Item` is `Messaging.Message` — [Catchup application types](../design/types.md), line 19.
-  - `Recipient` is `PasswordAuthenticating.User` — [Catchup application types](../design/types.md), line 18.
+- `Bookmarking` — instance of `Bookmarking` — [Catchup application types](../design/types.md), line 16.
+  - `Item` is `Messaging.Message` — [Catchup application types](../design/types.md), line 18.
+  - `User` is `PasswordAuthenticating.User` — [Catchup application types](../design/types.md), line 17.
 
 ### Messaging
 
@@ -70,8 +48,8 @@ Defined in [Messaging](../design/concepts/Messaging.md), line 1.
 
 #### Instances
 
-- `Messaging` — instance of `Messaging` — [Catchup application types](../design/types.md), line 15.
-  - `User` is `PasswordAuthenticating.User` — [Catchup application types](../design/types.md), line 16.
+- `Messaging` — instance of `Messaging` — [Catchup application types](../design/types.md), line 11.
+  - `User` is `PasswordAuthenticating.User` — [Catchup application types](../design/types.md), line 12.
 
 ### PasswordAuthenticating
 
@@ -93,33 +71,35 @@ Defined in [PasswordAuthenticating](../design/concepts/PasswordAuthenticating.md
 
 #### Instances
 
-- `PasswordAuthenticating` — instance of `PasswordAuthenticating` — [Catchup application types](../design/types.md), line 14.
+- `PasswordAuthenticating` — instance of `PasswordAuthenticating` — [Catchup application types](../design/types.md), line 10.
 
-### Receptivity
+### Receiving
 
-Defined in [Receptivity](../design/concepts/Receptivity.md), line 1.
+Defined in [Receiving](../design/concepts/Receiving.md), line 1.
 
 #### Actions
 
-- `open(person: User) : returns (window: Window, person: User, startedAt: DateTime, expiresAt: DateTime)`
-- `close(person: User, window: Window) : returns (person: User, window: Window)`
+- `enqueue(recipient: Recipient, item: Item) : returns (recipient: Recipient, item: Item)`
+- `open(person: Recipient) : returns (window: Window, person: Recipient, startedAt: DateTime, expiresAt: DateTime)`
+- `close(person: Recipient, window: Window) : returns (person: Recipient, window: Window)`
 - `expire(window: Window) : returns (window: Window)`
 
 #### Queries
 
-- `_current(person: User) : optional (window: Window, person: User, startedAt: DateTime, expiresAt: DateTime)`
-- `_isOpen(person: User) : one (open: Flag)`
-- `_active(person: User) : many (window: Window, person: User, startedAt: DateTime, expiresAt: DateTime)`
+- `_pending(recipient: Recipient) : many (item: Item)`
+- `_released(recipient: Recipient) : many (item: Item)`
+- `_hasPending(recipient: Recipient) : one (waiting: Flag)`
+- `_status(recipient: Recipient, item: Item) : one (status: Status)`
+- `_current(person: Recipient) : optional (window: Window, person: Recipient, startedAt: DateTime, expiresAt: DateTime)`
+- `_active(person: Recipient) : many (window: Window, person: Recipient, startedAt: DateTime, expiresAt: DateTime)`
+- `_isOpen(person: Recipient) : one (open: Flag)`
 - `_expired() : many (window: Window)`
 
 #### Instances
 
-- `Receptivity` — instance of `Receptivity` — [Catchup application types](../design/types.md), line 20.
-  - `User` is `PasswordAuthenticating.User` — [Catchup application types](../design/types.md), line 21.
-
-## Computations
-
-- `singleItem(item: Messaging.Message) : Holding.ItemBatch` — [Catchup application types](../design/types.md), line 9.
+- `Receiving` — instance of `Receiving` — [Catchup application types](../design/types.md), line 13.
+  - `Item` is `Messaging.Message` — [Catchup application types](../design/types.md), line 15.
+  - `Recipient` is `PasswordAuthenticating.User` — [Catchup application types](../design/types.md), line 14.
 
 ## Views
 
@@ -134,19 +114,19 @@ Authored path: `Catchup.ReleasedIncoming`.
 a released incoming message of (person) — inputs (person); outputs (message, sender, text, drawing, createdAt); bindings () — answers any number of (message, sender, text, drawing, createdAt)
   where
     Messaging._addressedTo (user: person) has (createdAt, drawing, message, sender, text)
-    Holding._status (item: message, recipient: person) has (status: "RELEASED")
+    Receiving._status (item: message, recipient: person) has (status: "RELEASED")
 ```
 
 ### the released message (message) for (person)
 
 Authored path: `Catchup.AccessibleMessage`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 79.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 76.
 
 ```view
 the released message (message) for (person) — inputs (person, message); outputs (sender, text, drawing, createdAt); bindings () — answers at most one (sender, text, drawing, createdAt)
   where
     Messaging._get (message) has (createdAt, drawing, recipient: person, sender, text)
-    Holding._status (item: message, recipient: person) has (status: "RELEASED")
+    Receiving._status (item: message, recipient: person) has (status: "RELEASED")
 ```
 
 ## Formers
@@ -157,11 +137,11 @@ _the authored explanation; this section records the generated shape._
 ### the active window of (person)
 
 Authored path: `Catchup.Windows`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 86.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 82.
 
 ```former
 Former "the active window of (person)" — inputs (person); bindings (window, startedAt, expiresAt); promises exactly one record — forms:
-  each Receptivity._active (person) has (expiresAt, startedAt, window)
+  each Receiving._active (person) has (expiresAt, startedAt, window)
     form a record of
       expiresAt
       person
@@ -172,7 +152,7 @@ Former "the active window of (person)" — inputs (person); bindings (window, st
 ### the incoming messages of (person)
 
 Authored path: `Catchup.Incoming`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 77.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 80.
 
 ```former
 Former "the incoming messages of (person)" — inputs (person); bindings (message, sender, text, drawing, createdAt, senderUsername, recipientUsername); promises exactly one record — forms:
@@ -193,7 +173,7 @@ Former "the incoming messages of (person)" — inputs (person); bindings (messag
 ### the received message (message) of (person)
 
 Authored path: `Catchup.MessageDetails`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 94.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 91.
 
 ```former
 Former "the received message (message) of (person)" — inputs (person, message); bindings (sender, text, drawing, createdAt, senderUsername, recipientUsername); promises at most one record — forms:
@@ -214,7 +194,7 @@ Former "the received message (message) of (person)" — inputs (person, message)
 ### the saved messages of (person)
 
 Authored path: `Catchup.Saved`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 92.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 84.
 
 ```former
 Former "the saved messages of (person)" — inputs (person); bindings (message, sender, text, drawing, createdAt, senderUsername, recipientUsername); promises exactly one record — forms:
@@ -236,12 +216,12 @@ Former "the saved messages of (person)" — inputs (person); bindings (message, 
 ### the sent messages of (person)
 
 Authored path: `Catchup.Sent`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 84.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 81.
 
 ```former
 Former "the sent messages of (person)" — inputs (person); bindings (message, recipient, text, drawing, createdAt, status, senderUsername, recipientUsername); promises exactly one record — forms:
   each Messaging._sent (user: person) has (createdAt, drawing, message, recipient, text)
-    where Holding._status (item: message, recipient) has (status)
+    where Receiving._status (item: message, recipient) has (status)
     where PasswordAuthenticating._name (user: person) has (username: senderUsername)
     where PasswordAuthenticating._name (user: recipient) has (username: recipientUsername)
     form a record of
@@ -261,8 +241,8 @@ Former "the sent messages of (person)" — inputs (person); bindings (message, r
 ### Catchup.CheckUpdates
 
 Authored path: `Catchup.CheckUpdates`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 23.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 37.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 103.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 112.
 
 ```reaction
 when RequestBoundary.request (password, path: "/catchup/checkUpdates", requestId, username)
@@ -273,13 +253,13 @@ then
 ### Catchup.CheckUpdates#2
 
 Authored path: `Catchup.CheckUpdates`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 23.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 37.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 103.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 112.
 
 ```reaction
 when PasswordAuthenticating.authenticate (password, username, user: person), asked by Catchup.CheckUpdates
 where
-  Holding._hasPending (recipient: person) has (waiting)
+  Receiving._hasPending (recipient: person) has (waiting)
   earlier, RequestBoundary.request (password, path: "/catchup/checkUpdates", requestId, username)
 then
   RequestBoundary.respond (requestId, waiting)
@@ -288,8 +268,8 @@ then
 ### Catchup.CheckUsername
 
 Authored path: `Catchup.CheckUsername`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 16.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 36.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 21.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 29.
 
 ```reaction
 when RequestBoundary.request (password, path: "/catchup/checkUsername", recipientUsername, requestId, username)
@@ -300,8 +280,8 @@ then
 ### Catchup.CheckUsername:found#2
 
 Authored path: `Catchup.CheckUsername`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 16.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 36.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 21.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 29.
 
 ```reaction
 when PasswordAuthenticating.authenticate (password, username), asked by Catchup.CheckUsername
@@ -315,8 +295,8 @@ then
 ### Catchup.CheckUsername:missing#2
 
 Authored path: `Catchup.CheckUsername`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 16.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 36.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 21.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 29.
 
 ```reaction
 when PasswordAuthenticating.authenticate (password, username), asked by Catchup.CheckUsername
@@ -330,8 +310,8 @@ then
 ### Catchup.Dashboard
 
 Authored path: `Catchup.Dashboard`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 84.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 112.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 83.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 95.
 
 ```reaction
 when RequestBoundary.request (password, path: "/catchup/dashboard", requestId, username)
@@ -342,8 +322,8 @@ then
 ### Catchup.Dashboard#2
 
 Authored path: `Catchup.Dashboard`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 84.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 112.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 83.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 95.
 
 ```reaction
 when PasswordAuthenticating.authenticate (password, username, user: person), asked by Catchup.Dashboard
@@ -356,8 +336,8 @@ then
 ### Catchup.EndCatchup
 
 Authored path: `Catchup.EndCatchup`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 64.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 114.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 51.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 70.
 
 ```reaction
 when RequestBoundary.request (password, path: "/catchup/endCatchup", requestId, username, window)
@@ -368,25 +348,25 @@ then
 ### Catchup.EndCatchup#2
 
 Authored path: `Catchup.EndCatchup`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 64.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 114.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 51.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 70.
 
 ```reaction
 when PasswordAuthenticating.authenticate (password, username, user: person), asked by Catchup.EndCatchup
 where
   earlier, RequestBoundary.request (password, path: "/catchup/endCatchup", requestId, username, window)
 then
-  Receptivity.close (person, window)
+  Receiving.close (person, window)
 ```
 
 ### Catchup.EndCatchup#3
 
 Authored path: `Catchup.EndCatchup`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 64.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 114.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 51.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 70.
 
 ```reaction
-when Receptivity.close (person, window), asked by Catchup.EndCatchup#2
+when Receiving.close (person, window), asked by Catchup.EndCatchup#2
 where
   earlier, RequestBoundary.request (password, path: "/catchup/endCatchup", requestId, username, window)
 then
@@ -396,30 +376,30 @@ then
 ### Catchup.HoldDrawing
 
 Authored path: `Catchup.HoldDrawing`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 54.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 41.
 
 ```reaction
 when Messaging.sendDrawing (drawing, recipient, sender, message)
 then
-  Holding.enqueue (item: message, recipient)
+  Receiving.enqueue (item: message, recipient)
 ```
 
 ### Catchup.HoldShare
 
 Authored path: `Catchup.HoldShare`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 44.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 41.
 
 ```reaction
 when Messaging.send (recipient, sender, text, message)
 then
-  Holding.enqueue (item: message, recipient)
+  Receiving.enqueue (item: message, recipient)
 ```
 
 ### Catchup.Login
 
 Authored path: `Catchup.Login`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 12.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 35.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 18.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 28.
 
 ```reaction
 when RequestBoundary.request (password, path: "/catchup/login", requestId, username)
@@ -430,8 +410,8 @@ then
 ### Catchup.Login#2
 
 Authored path: `Catchup.Login`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 12.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 35.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 18.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 28.
 
 ```reaction
 when PasswordAuthenticating.authenticate (password, username, user, result.username: canonicalUsername), asked by Catchup.Login
@@ -444,8 +424,8 @@ then
 ### Catchup.Register
 
 Authored path: `Catchup.Register`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 11.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 34.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 17.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 27.
 
 ```reaction
 when RequestBoundary.request (password, path: "/catchup/register", requestId, username)
@@ -456,8 +436,8 @@ then
 ### Catchup.Register#2
 
 Authored path: `Catchup.Register`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 11.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 34.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 17.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 27.
 
 ```reaction
 when PasswordAuthenticating.register (password, username, user, result.username: canonicalUsername), asked by Catchup.Register
@@ -467,42 +447,11 @@ then
   RequestBoundary.respond (requestId, user, username: canonicalUsername)
 ```
 
-### Catchup.ReleaseNewItem
-
-Authored path: `Catchup.ReleaseNewItem`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 63.
-
-```reaction
-when Holding.enqueue (item, recipient)
-where
-  Holding._status (item, recipient) has (status: "PENDING")
-  Receptivity._isOpen (person: recipient) has (open: true)
-  items is singleItem (item)
-then
-  Holding.release (items, recipient)
-```
-
-### Catchup.ReleasePending
-
-Authored path: `Catchup.ReleasePending`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 60.
-
-```reaction
-when Receptivity.open (person, window)
-where
-  Receptivity._current (person) has (window)
-  Receptivity._isOpen (person) has (open: true)
-  Holding._pending (recipient: person) has (item)
-  items is singleItem (item)
-then
-  Holding.release (items, recipient: person)
-```
-
 ### Catchup.RemoveSaved
 
 Authored path: `Catchup.RemoveSaved`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 91.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 116.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 89.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 97.
 
 ```reaction
 when RequestBoundary.request (message, password, path: "/catchup/removeSaved", requestId, username)
@@ -513,8 +462,8 @@ then
 ### Catchup.RemoveSaved#2
 
 Authored path: `Catchup.RemoveSaved`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 91.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 116.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 89.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 97.
 
 ```reaction
 when PasswordAuthenticating.authenticate (password, username, user: person), asked by Catchup.RemoveSaved
@@ -527,8 +476,8 @@ then
 ### Catchup.RemoveSaved#3
 
 Authored path: `Catchup.RemoveSaved`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 91.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 116.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 89.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 97.
 
 ```reaction
 when Bookmarking.remove (item: message, person), asked by Catchup.RemoveSaved#2
@@ -541,8 +490,8 @@ then
 ### Catchup.Save
 
 Authored path: `Catchup.Save`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 90.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 115.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 88.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 96.
 
 ```reaction
 when RequestBoundary.request (message, password, path: "/catchup/save", requestId, username)
@@ -553,8 +502,8 @@ then
 ### Catchup.Save:accessible#2
 
 Authored path: `Catchup.Save`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 90.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 115.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 88.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 96.
 
 ```reaction
 when PasswordAuthenticating.authenticate (password, username, user: person), asked by Catchup.Save
@@ -568,8 +517,8 @@ then
 ### Catchup.Save:accessible#3
 
 Authored path: `Catchup.Save`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 90.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 115.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 88.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 96.
 
 ```reaction
 when Bookmarking.save (item: message, person), asked by Catchup.Save:accessible#2
@@ -582,8 +531,8 @@ then
 ### Catchup.Save:unavailable#2
 
 Authored path: `Catchup.Save`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 90.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 115.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 88.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 96.
 
 ```reaction
 when PasswordAuthenticating.authenticate (password, username, user: person), asked by Catchup.Save
@@ -597,8 +546,8 @@ then
 ### Catchup.Send
 
 Authored path: `Catchup.Send`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 40.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 108.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 34.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 65.
 
 ```reaction
 when RequestBoundary.request (password, path: "/catchup/send", recipientUsername, requestId, text, username)
@@ -611,8 +560,8 @@ then
 ### Catchup.Send#2
 
 Authored path: `Catchup.Send`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 40.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 108.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 34.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 65.
 
 ```reaction
 when PasswordAuthenticating.authenticate (password, username, user: sender), asked by Catchup.Send
@@ -626,14 +575,14 @@ then
 ### Catchup.Send#3
 
 Authored path: `Catchup.Send`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 40.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 108.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 34.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 65.
 
 ```reaction
 when Messaging.send (recipient, sender, text, message), asked by Catchup.Send#2
 at the flow's settlement frontier
 where
-  Holding._status (item: message, recipient) and not (status: "ABSENT")
+  Receiving._status (item: message, recipient) and not (status: "ABSENT")
   earlier, RequestBoundary.request (password, path: "/catchup/send", recipientUsername, requestId, text, username)
 then
   RequestBoundary.respond (message, requestId)
@@ -642,8 +591,8 @@ then
 ### Catchup.SendDrawing
 
 Authored path: `Catchup.SendDrawing`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 48.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 110.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 34.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 67.
 
 ```reaction
 when RequestBoundary.request (drawing, password, path: "/catchup/sendDrawing", recipientUsername, requestId, username)
@@ -656,8 +605,8 @@ then
 ### Catchup.SendDrawing#2
 
 Authored path: `Catchup.SendDrawing`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 48.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 110.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 34.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 67.
 
 ```reaction
 when PasswordAuthenticating.authenticate (password, username, user: sender), asked by Catchup.SendDrawing
@@ -671,14 +620,14 @@ then
 ### Catchup.SendDrawing#3
 
 Authored path: `Catchup.SendDrawing`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 48.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 110.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 34.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 67.
 
 ```reaction
 when Messaging.sendDrawing (drawing, recipient, sender, message), asked by Catchup.SendDrawing#2
 at the flow's settlement frontier
 where
-  Holding._status (item: message, recipient) and not (status: "ABSENT")
+  Receiving._status (item: message, recipient) and not (status: "ABSENT")
   earlier, RequestBoundary.request (drawing, password, path: "/catchup/sendDrawing", recipientUsername, requestId, username)
 then
   RequestBoundary.respond (message, requestId)
@@ -687,8 +636,8 @@ then
 ### Catchup.SendDrawingMissingRecipient
 
 Authored path: `Catchup.SendDrawingMissingRecipient`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 49.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 111.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 37.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 68.
 
 ```reaction
 when RequestBoundary.request (drawing, password, path: "/catchup/sendDrawing", recipientUsername, requestId, username)
@@ -701,8 +650,8 @@ then
 ### Catchup.SendDrawingMissingRecipient#2
 
 Authored path: `Catchup.SendDrawingMissingRecipient`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 49.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 111.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 37.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 68.
 
 ```reaction
 when PasswordAuthenticating.authenticate (password, username, user: sender), asked by Catchup.SendDrawingMissingRecipient
@@ -715,8 +664,8 @@ then
 ### Catchup.SendMissingRecipient
 
 Authored path: `Catchup.SendMissingRecipient`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 42.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 109.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 36.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 66.
 
 ```reaction
 when RequestBoundary.request (password, path: "/catchup/send", recipientUsername, requestId, text, username)
@@ -729,8 +678,8 @@ then
 ### Catchup.SendMissingRecipient#2
 
 Authored path: `Catchup.SendMissingRecipient`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 42.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 109.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 36.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 66.
 
 ```reaction
 when PasswordAuthenticating.authenticate (password, username, user: sender), asked by Catchup.SendMissingRecipient
@@ -743,8 +692,8 @@ then
 ### Catchup.StartCatchup
 
 Authored path: `Catchup.StartCatchup`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 59.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 113.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 49.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 69.
 
 ```reaction
 when RequestBoundary.request (password, path: "/catchup/startCatchup", requestId, username)
@@ -755,23 +704,23 @@ then
 ### Catchup.StartCatchup#2
 
 Authored path: `Catchup.StartCatchup`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 59.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 113.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 49.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 69.
 
 ```reaction
 when PasswordAuthenticating.authenticate (password, username, user: person), asked by Catchup.StartCatchup
 then
-  Receptivity.open (person)
+  Receiving.open (person)
 ```
 
 ### Catchup.StartCatchup#3
 
 Authored path: `Catchup.StartCatchup`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 59.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 113.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 49.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 69.
 
 ```reaction
-when Receptivity.open (person, expiresAt, startedAt, window), asked by Catchup.StartCatchup#2
+when Receiving.open (person, expiresAt, startedAt, window), asked by Catchup.StartCatchup#2
 at the flow's settlement frontier
 where
   earlier, RequestBoundary.request (password, path: "/catchup/startCatchup", requestId, username)
@@ -782,8 +731,8 @@ then
 ### Catchup.ViewMessage
 
 Authored path: `Catchup.ViewMessage`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 93.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 117.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 90.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 98.
 
 ```reaction
 when RequestBoundary.request (message, password, path: "/catchup/viewMessage", requestId, username)
@@ -794,8 +743,8 @@ then
 ### Catchup.ViewMessage:accessible#2
 
 Authored path: `Catchup.ViewMessage`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 93.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 117.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 90.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 98.
 
 ```reaction
 when PasswordAuthenticating.authenticate (password, username, user: person), asked by Catchup.ViewMessage
@@ -809,8 +758,8 @@ then
 ### Catchup.ViewMessage:unavailable#2
 
 Authored path: `Catchup.ViewMessage`.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 93.
-- Covered by [Catchup](../design/compositions/Catchup.md), line 117.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 90.
+- Covered by [Catchup](../design/compositions/Catchup.md), line 98.
 
 ```reaction
 when PasswordAuthenticating.authenticate (password, username, user: person), asked by Catchup.ViewMessage

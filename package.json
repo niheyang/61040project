@@ -35,6 +35,7 @@
     "db:up": "podman compose up -d mongo && bun scripts/check-db.ts --wait",
     "db:down": "podman compose down",
     "db:check": "bun scripts/check-db.ts",
+    "db:migrate": "bun scripts/migrate-receiving.ts",
     "db:logs": "podman compose logs mongo",
     "test": "bun test"
   }

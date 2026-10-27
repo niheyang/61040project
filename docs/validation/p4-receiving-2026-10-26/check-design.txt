@@ -1,0 +1,11 @@
+Started (America/New_York): 2026-10-26T23:51:47.672242-04:00
+Command: bun run check:design
+Base Git commit: 871bfd81e1e34ea054a110eb07095a6981d5b0df
+Source: uncommitted working tree; see source-manifest.sha256.
+Database tests use isolated catchup-test-UUID databases on local MongoDB.
+
+$ sync-engine check-design design/concepts/*.md design/types.md design/compositions/*.md
+Design form check passed for 6 files.
+
+Exit code: 0
+Elapsed seconds: 0.22

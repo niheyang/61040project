@@ -8,34 +8,23 @@ export function createCatchupHandler(database: Db, clock: () => number = Date.no
   const application = assembleApplication(database, clock);
   const gateway = createGateway({ application });
   const handler = createHttpHandler({ application, gateway, policy });
-  // Serialize complete local request flows, including reactions, so a close
-  // cannot interleave with an authorization check and its release.
-  let queue: Promise<unknown> = Promise.resolve();
-  function serialize<T>(operation: () => Promise<T>): Promise<T> {
-    const result = queue.then(operation);
-    queue = result.catch(() => undefined);
-    return result;
-  }
   return {
     application,
-    handle(request: Request) {
-      return serialize(async () => {
-        const response = await handler(request);
-        await application.whenIdle();
-        // API responses can contain private messages, drawings, and identities.
-        response.headers.set("Cache-Control", "no-store");
-        return response;
-      });
+    async handle(request: Request) {
+      const response = await handler(request);
+      // API responses can contain private messages, drawings, and identities.
+      response.headers.set("Cache-Control", "no-store");
+      return response;
     },
-    expireWindows() {
-      return serialize(async () => {
-        const expired = await application.concepts.Receptivity._expired({});
-        for (const { window } of expired) {
-          await application.concepts.Receptivity.expire({ window });
-        }
-        await application.whenIdle();
-      });
+    async expireWindows() {
+      const expired = await application.concepts.Receiving._expired({});
+      for (const { window } of expired) {
+        await application.concepts.Receiving.expire({ window });
+      }
     },
-    async close() { await queue; await application.beginDrain(); },
+    async close() {
+      await gateway.beginDrain();
+      await application.beginDrain();
+    },
   };
 }

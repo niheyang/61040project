@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { Holding } from "../src/concepts/Holding.ts";
+import { Receiving } from "../src/concepts/Receiving.ts";
 import { createCatchupHandler } from "../src/server.ts";
 import type { Dashboard } from "../web/src/api.ts";
 import { sampleDrawing } from "./drawing-fixtures.ts";
@@ -46,7 +46,7 @@ const allDashboards = () => Promise.all([dashboard("alice"), dashboard("bob"), d
 async function storedState() {
   if (!database) throw new Error("Check-updates test DB is not started");
   return Promise.all([
-    "auth.users", "messaging_messages", "holding_entries", "bookmarking_saved", "receptivity_windows",
+    "auth.users", "messaging_messages", "receiving_recipients", "bookmarking_saved",
   ].map(name => database!.db.collection(name).find({}).sort({ _id: 1 }).toArray()));
 }
 
@@ -65,21 +65,21 @@ afterEach(async () => {
   }
 }, 30_000);
 
-test("Holding reports only whether this recipient has pending items, without changing them", async () => {
-  const holding = new Holding(database!.db);
-  expect(await holding._hasPending({ recipient: "bob" })).toEqual({ waiting: false });
-  await holding.enqueue({ recipient: "eve", item: "other-recipient" });
-  expect(await holding._hasPending({ recipient: "bob" })).toEqual({ waiting: false });
-  await holding.enqueue({ recipient: "bob", item: "one" });
-  expect(await holding._hasPending({ recipient: "bob" })).toEqual({ waiting: true });
-  await holding.enqueue({ recipient: "bob", item: "two" });
+test("Receiving reports only whether this recipient has pending items, without changing them", async () => {
+  const receiving = new Receiving(database!.db, () => now);
+  expect(await receiving._hasPending({ recipient: "bob" })).toEqual({ waiting: false });
+  await receiving.enqueue({ recipient: "eve", item: "other-recipient" });
+  expect(await receiving._hasPending({ recipient: "bob" })).toEqual({ waiting: false });
+  await receiving.enqueue({ recipient: "bob", item: "one" });
+  expect(await receiving._hasPending({ recipient: "bob" })).toEqual({ waiting: true });
+  await receiving.enqueue({ recipient: "bob", item: "two" });
   const before = await storedState();
-  expect(await holding._hasPending({ recipient: "bob" })).toEqual({ waiting: true });
-  expect(await new Holding(database!.db)._hasPending({ recipient: "bob" })).toEqual({ waiting: true });
+  expect(await receiving._hasPending({ recipient: "bob" })).toEqual({ waiting: true });
+  expect(await new Receiving(database!.db, () => now)._hasPending({ recipient: "bob" })).toEqual({ waiting: true });
   expect(await storedState()).toEqual(before);
-  await holding.release({ recipient: "bob", items: ["one", "two"] });
-  expect(await holding._hasPending({ recipient: "bob" })).toEqual({ waiting: false });
-  expect(await holding._hasPending({ recipient: "eve" })).toEqual({ waiting: true });
+  await receiving.open({ person: "bob" });
+  expect(await receiving._hasPending({ recipient: "bob" })).toEqual({ waiting: false });
+  expect(await receiving._hasPending({ recipient: "eve" })).toEqual({ waiting: true });
 });
 
 describe("opt-in update checks", () => {

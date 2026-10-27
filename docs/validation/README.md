@@ -1,5 +1,48 @@
 # Automated validation
 
+## P4 receiving ownership and organization — October 26, 2026
+
+The complete local suite passed **121 tests with 1,742 assertions across 13 files**.
+The focused receiving/HTTP run passed **33 tests with 992 assertions**, and the
+migration run passed **14 tests with 96 assertions**. Saved
+[complete-suite output](p4-receiving-2026-10-26/bun-test.txt),
+[receiving/HTTP output](p4-receiving-2026-10-26/receiving-http-tests.txt),
+[migration output](p4-receiving-2026-10-26/migration-tests.txt), and a
+[source manifest](p4-receiving-2026-10-26/source-manifest.sha256) identify this version.
+
+- [`receiving.test.ts`](../../tests/receiving.test.ts) checks the combined receiving
+  principle, permanent availability, exact expiry, recipient separation, repeated
+  items, replacement windows, and literal opaque identities. Separate raw concept
+  instances share MongoDB without relying on the engine's action queues. Tests
+  pause actual storage writes to force close-before-enqueue and
+  enqueue-before-open interleavings; concurrent first inserts and openings are
+  also exercised. Production database-clock expiry is checked separately from
+  injected deterministic clocks.
+- [`migration.test.ts`](../../tests/migration.test.ts) inserts retired-schema
+  fixtures into disposable databases. It verifies preservation of window handles,
+  dates, pending/released states, legacy collections, and unrelated accounts,
+  messages, and bookmarks. Repeated/concurrent imports cannot overwrite upgraded
+  recipients; invalid snapshots are rejected before target writes. These tests
+  do not migrate the development or deployed database.
+- HTTP text/drawing journeys, update checks, and the authentication/access matrix
+  pass against the new Receiving storage and split composition. An unfinished
+  request body no longer blocks an unrelated request. Overlapping sends and
+  closes are checked against the permitted atomic storage orders, while a send
+  after an awaited close must remain hidden.
+
+[Design checks](p4-receiving-2026-10-26/check-design.txt),
+[application/generated-contract/type checks](p4-receiving-2026-10-26/check.txt),
+and the [production build](p4-receiving-2026-10-26/build.txt) passed. The application
+checker retains 16 advisories: 12 conservative endpoint-fallback warnings and four
+source-order notices for formed views. The build retains the sync-engine
+`node:util`/`node:crypto` externalization warnings. These are saved rather than
+treated as proof that browser or deployed behavior has been tested.
+
+This run used isolated local MongoDB databases and left application data alone.
+No browser or live-deployment checks were performed. Before upgrading a populated
+database, follow the [stopped-writer migration procedure](../deployment.md#upgrade-an-existing-database-once).
+Earlier sections below describe their own historical source manifests.
+
 ## P4 opt-in update check — October 26, 2026
 
 The complete local suite passed **100 tests with 1,605 assertions across 11 files**.

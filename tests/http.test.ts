@@ -97,6 +97,37 @@ afterEach(async () => {
 }, 30_000);
 
 describe("Catchup HTTP composition", () => {
+  test("an unfinished request body does not block an unrelated request", async () => {
+    let finish!: ReadableStreamDefaultController<Uint8Array>;
+    let bodyRead!: () => void;
+    const reading = new Promise<void>(resolve => { bodyRead = resolve; });
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) { finish = controller; },
+      pull() { bodyRead(); },
+    }, { highWaterMark: 0 });
+    const slow = handler!.handle(new Request("http://127.0.0.1:3000/api/catchup/login", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body,
+    }));
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await reading;
+      const independent = request("login", null);
+      const response = await Promise.race([
+        independent,
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error("Unrelated request was blocked by an unfinished body")), 2_000);
+        }),
+      ]);
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: "INVALID_REQUEST" });
+    } finally {
+      clearTimeout(timeout);
+      finish.enqueue(new TextEncoder().encode("null"));
+      finish.close();
+      expect((await slow).status).toBe(400);
+    }
+  }, 10_000);
+
   test("accounts authenticate and failures cannot mutate someone else's inbox", async () => {
     expect(Object.keys(alice).sort()).toEqual(["user", "username"]);
     expect(alice.user).not.toBe(bob.user);

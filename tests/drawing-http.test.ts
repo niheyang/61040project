@@ -70,12 +70,14 @@ const view = (username: string, message: string) => post<{ record: MessageRow }>
 
 async function storedCounts() {
   if (!database) throw new Error("Drawing test database is not started");
-  const [messages, holding, saved] = await Promise.all([
+  const [messages, deliveries, saved] = await Promise.all([
     database.db.collection("messaging_messages").countDocuments({}),
-    database.db.collection("holding_entries").countDocuments({}),
+    database.db.collection("receiving_recipients").aggregate<{ count: number }>([
+      { $group: { _id: null, count: { $sum: { $size: "$entries" } } } },
+    ]).next(),
     database.db.collection("bookmarking_saved").countDocuments({}),
   ]);
-  return { messages, holding, saved };
+  return { messages, receiving: deliveries?.count ?? 0, saved };
 }
 
 const allDashboards = () => Promise.all([dashboard("alice"), dashboard("bob"), dashboard("eve")]);
@@ -152,10 +154,10 @@ describe("drawing HTTP journeys", () => {
     await denied("save", { ...credentials("eve"), message: held.message }, "FORBIDDEN", 403);
     expect((await dashboard("eve")).incoming).toEqual([]);
     expect((await dashboard("eve")).saved).toEqual([]);
-    expect(await storedCounts()).toEqual({ messages: 1, holding: 1, saved: 0 });
+    expect(await storedCounts()).toEqual({ messages: 1, receiving: 1, saved: 0 });
   }, 30_000);
 
-  test("malformed drawings are refused without changing messages, holding, or any actor's dashboard", async () => {
+  test("malformed drawings are refused without changing messages, receiving, or any actor's dashboard", async () => {
     await sendDrawing();
     const before = await allDashboards();
     const counts = await storedCounts();
@@ -230,7 +232,7 @@ describe("drawing HTTP journeys", () => {
     expect(state.saved).toEqual([]);
     expect(state.incoming).toEqual([before]);
     expect((await view("bob", sent.message)).record).toEqual(before);
-    expect(await storedCounts()).toEqual({ messages: 1, holding: 1, saved: 0 });
+    expect(await storedCounts()).toEqual({ messages: 1, receiving: 1, saved: 0 });
   }, 30_000);
 
   test("an application restart preserves drawings, timestamps, bookmarks, and pending privacy", async () => {
@@ -285,24 +287,29 @@ describe("drawing HTTP journeys", () => {
     expect(state.incoming).toHaveLength(3);
     for (const row of state.incoming) expect(row.drawing).toEqual(sampleDrawing());
     expect((await dashboard("alice")).sent.every(row => row.status === "RELEASED")).toBe(true);
-    expect(await storedCounts()).toEqual({ messages: 3, holding: 3, saved: 0 });
+    expect(await storedCounts()).toEqual({ messages: 3, receiving: 3, saved: 0 });
     await close(window.window);
   }, 30_000);
 
-  test("both drawing/close request orders obey the receiving boundary", async () => {
+  test("overlapping drawing and close requests obey atomic receiving order; later arrivals stay hidden", async () => {
     const firstWindow = await open();
     const [beforeClose] = await Promise.all([sendDrawing(), close(firstWindow.window)]);
-    expect(ids((await dashboard("bob")).incoming)).toEqual([beforeClose.message]);
-    expect((await dashboard("alice")).sent.find(row => row.message === beforeClose.message)?.status).toBe("RELEASED");
+    const firstState = await dashboard("bob");
+    const firstStatus = (await dashboard("alice")).sent.find(row => row.message === beforeClose.message)?.status;
+    expect(["PENDING", "RELEASED"]).toContain(firstStatus!);
+    expect(ids(firstState.incoming)).toEqual(firstStatus === "RELEASED" ? [beforeClose.message] : []);
 
     const secondWindow = await open();
     const [, afterClose] = await Promise.all([close(secondWindow.window), sendDrawing()]);
     const state = await dashboard("bob");
     expect(state.windows).toEqual([]);
-    expect(ids(state.incoming)).toEqual([beforeClose.message]);
-    expect((await dashboard("alice")).sent.find(row => row.message === afterClose.message)?.status).toBe("PENDING");
-    await denied("viewMessage", { ...credentials("bob"), ...afterClose }, "FORBIDDEN", 403);
+    const secondStatus = (await dashboard("alice")).sent.find(row => row.message === afterClose.message)?.status;
+    expect(["PENDING", "RELEASED"]).toContain(secondStatus!);
+    expect(ids(state.incoming)).toEqual([beforeClose.message, ...(secondStatus === "RELEASED" ? [afterClose.message] : [])].sort());
+    const later = await sendDrawing();
+    expect((await dashboard("alice")).sent.find(row => row.message === later.message)?.status).toBe("PENDING");
+    await denied("viewMessage", { ...credentials("bob"), ...later }, "FORBIDDEN", 403);
     await open();
-    expect(ids((await dashboard("bob")).incoming)).toEqual([beforeClose.message, afterClose.message].sort());
+    expect(ids((await dashboard("bob")).incoming)).toEqual([beforeClose.message, afterClose.message, later.message].sort());
   }, 30_000);
 });

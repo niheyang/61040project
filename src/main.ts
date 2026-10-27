@@ -1,12 +1,14 @@
 import { client, db } from "./db.ts";
 import { createFrontendHandler } from "./frontend.ts";
 import { createCatchupHandler } from "./server.ts";
+import { migrateReceiving } from "./migrations/receiving.ts";
 
 const frontendDirectory = `${import.meta.dir}/../web/dist`;
 if (process.env.NODE_ENV === "production" && !(await Bun.file(`${frontendDirectory}/index.html`).exists())) {
   throw new Error("Frontend build missing. Run bun run build before starting.");
 }
 await db.command({ ping: 1 });
+await migrateReceiving(db);
 const app = createCatchupHandler(db);
 const server = Bun.serve({
   hostname: process.env.HOST ?? "127.0.0.1",
