@@ -20,10 +20,21 @@ trims whitespace and ignores case. Successful responses contain only
 information. Unknown input fields are rejected, and checking a username changes
 no state or reception behavior.
 
+[CheckUpdates](reaction:Catchup.CheckUpdates) supports the optional **Check for
+updates** button while reception is closed. It authenticates the requester and
+queries Holding._hasPending for that user's identity. Its response contains only
+`{waiting: true}` or `{waiting: false}`: no sender names, message counts, item
+identities, previews, or content. The query reads at most one pending entry's
+internal ID and returns only whether an entry exists. It never opens a window,
+releases a message, or changes stored state. Unknown input fields are rejected;
+clients cannot choose another recipient's identity. The default dashboard remains
+unchanged, and checking is an explicit request rather than part of polling.
+
 ```endpoints
 Catchup.Register at /catchup/register
 Catchup.Login at /catchup/login
 Catchup.CheckUsername at /catchup/checkUsername
+Catchup.CheckUpdates at /catchup/checkUpdates
 ```
 
 [Send](reaction:Catchup.Send) authenticates the acting sender and resolves the
@@ -87,6 +98,11 @@ For this local MVP, every protected request reauthenticates username and passwor
 Vue keeps those credentials only in memory and clears them on sign-out. A reload
 requires sign-in again. No client-supplied actor identity is accepted. User-facing
 HTTP errors are categorized; password hashes never enter formed responses.
+All API responses use `Cache-Control: no-store` so HTTP caches do not retain
+private results. Sign-out remains available while requests are pending; it clears
+the tab immediately, and late responses cannot restore a previous session's data
+or change a later session's busy state. It does not undo an action already
+authorized by the server.
 
 ```endpoints
 Catchup.Send at /catchup/send

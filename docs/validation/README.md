@@ -1,4 +1,66 @@
-# P3 automated validation — October 23, 2026
+# Automated validation
+
+## P4 opt-in update check — October 26, 2026
+
+The complete local suite passed **100 tests with 1,605 assertions across 11 files**.
+The focused update-check/access-control run passed **8 tests with 363 assertions**.
+Saved [focused output](p4-updates-2026-10-26/check-updates-tests.txt),
+[complete-suite output](p4-updates-2026-10-26/bun-test.txt),
+[build output](p4-updates-2026-10-26/build.txt), and a
+[source manifest](p4-updates-2026-10-26/source-manifest.sha256) identify this run.
+
+[`check-updates.test.ts`](../../tests/check-updates.test.ts) checks empty, pending,
+released, closed, and exactly expired windows, with text and drawings from multiple
+friends. Successful responses must equal `{waiting: true}` or `{waiting: false}`;
+counts, identities, sender names, and previews are excluded. Repeated checks leave
+all five stored collections and each user's dashboard unchanged. Invalid credentials,
+forged owners, and malformed inputs are refused without mutation. The common
+access-control matrix now includes all ten protected endpoints.
+
+`bun run check:design`, `bun run check`, and the production build passed. The
+application check reports 16 advisories. The added endpoint has the same conservative
+fallback advisory as the other authenticated endpoints: its query always returns
+one boolean row, and tests cover both results and authentication/validation refusals.
+
+The frontend requests this status only after a click while reception is closed.
+It dismisses the answer after eight seconds and invalidates pending results on
+sign-out, opening reception, window changes, and unmounting. These UI behaviors
+received source/type/build checks; browser and deployed-app tests were not run.
+Earlier authentication and P3 results below describe their earlier source manifests.
+
+## P4 authentication and access review — October 26, 2026
+
+The complete local suite passed **96 tests with 1,444 assertions across 10 files**.
+The production build and `bun run check` also passed; the application check still
+reports 15 advisories. Saved [test output](p4-auth-2026-10-26/bun-test.txt),
+[build output](p4-auth-2026-10-26/build.txt), and a
+[source manifest](p4-auth-2026-10-26/source-manifest.sha256) identify this run.
+
+- All nine protected endpoints refuse missing credentials, incorrect passwords,
+  nonexistent accounts, and forged actor fields without changing stored data.
+- Text and drawing reads/bookmarks require the authenticated recipient and a
+  released message. Another account cannot release a recipient's pending shares,
+  close their window, remove their bookmarks, or change their dashboard identity
+  by supplying fake cookie or authorization headers. Internal concept actions
+  and views are not public HTTP endpoints.
+- Registration tests cover valid length boundaries and invalid usernames/passwords,
+  consistent authentication refusals, stored password hashes, and unchanged state
+  after failures. Tests use concept/application actions and isolated temporary DBs.
+- No authentication or ownership bypass was found in the reviewed routes. API
+  responses now carry `Cache-Control: no-store` as privacy hardening; the review
+  did not establish a cache-based disclosure in the previous POST-only API.
+- Sign-out now stays available during requests. Authentication cleanup is guarded
+  against an old session clearing a newer session's busy state. These frontend
+  changes received source review, Vue type checks, and a production build, without
+  browser interaction tests.
+
+These are local handler/DB tests, not deployed-app checks. The app still checks
+passwords on every protected request; sign-out clears the tab's private state
+and discards late responses, but does not revoke the password or undo an action
+already authorized by the server. Live validation and the slow-request sign-out
+journey remain to be performed on the deployed version.
+
+## P3 automated validation — October 23, 2026
 
 These results describe the local working tree tested on October 23, 2026, using
 Bun 1.4.2 and the existing local MongoDB service. All final commands exited with
@@ -12,7 +74,7 @@ code 0. Times and commands are recorded in the individual output files.
 | `bun run check` | Concept, application, generated-contract, and TypeScript checks passed; 15 advisories | [check.txt](check.txt) |
 | `bun run build` | Production frontend built successfully | [build.txt](build.txt) |
 
-## What the new drawing tests establish
+### What the new drawing tests establish
 
 - [`drawing-domain.test.ts`](../../tests/drawing-domain.test.ts) calls Messaging
   actions and queries against MongoDB. It checks the drawing exchange principle,
@@ -40,7 +102,7 @@ The latter would detect removal of the transport limit independently of drawing
 validation. Serialization also prevents a zero replay timestamp from invoking
 Signature Pad's fallback to the current time.
 
-## Database isolation and reproduction
+### Database isolation and reproduction
 
 Every database-backed suite uses [`tests/test-db.ts`](../../tests/test-db.ts).
 It creates a fresh `catchup-test-<UUID>` database and drops only that database on
@@ -67,7 +129,7 @@ it excludes credentials and personal notes. The base commit is not a claim that
 these uncommitted changes were already in that commit. Rerun validation after
 later implementation changes before using these results for a different version.
 
-## Initial finding and correction
+### Initial finding and correction
 
 The first behavior runs passed, but the separate type check found a test assertion
 passing a possibly undefined timestamp to a string comparison. The test already
@@ -80,7 +142,7 @@ The initial output is retained in [check-initial.txt](check-initial.txt),
 [bun-test-initial.txt](bun-test-initial.txt). These precede that test-only
 correction; the final source manifest applies to the final runs.
 
-## Limits of this evidence
+### Limits of this evidence
 
 No browser UI checks, pointer/touch drawing trials, user usability sessions, or
 live deployment checks were performed in this run. The drawing serialization

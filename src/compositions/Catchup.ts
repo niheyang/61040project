@@ -23,6 +23,12 @@ const CheckUsername = endpoint("/catchup/checkUsername", ({ username, password, 
         .then(respond({ exists: false })).named("missing"),
     ), stringInput({ ...credentials, recipientUsername: 100 }));
 
+const CheckUpdates = endpoint("/catchup/checkUpdates", ({ username, password, person, waiting }) =>
+  receive({ username, password })
+    .then(Auth.authenticate({ username, password }).responds({ user: person }))
+    .then(where(Holding._hasPending({ recipient: person }).is({ waiting }))
+      .then(respond({ waiting }))), stringInput(credentials));
+
 const ReleasedIncoming = view("a released incoming message of (person)",
   ({ person }, { message, sender, text, drawing, createdAt }) => where(
     Messaging._addressedTo({ user: person }).is({ message, sender, text, drawing, createdAt }),
@@ -170,7 +176,7 @@ const ViewMessage = endpoint("/catchup/viewMessage", ({ username, password, pers
         .then(respond({ error: "MESSAGE_UNAVAILABLE" })).named("unavailable"),
     ), stringInput({ ...credentials, message: 100 }));
 
-export const composition = { Register, Login, CheckUsername, Send, SendMissingRecipient, SendDrawing, SendDrawingMissingRecipient,
+export const composition = { Register, Login, CheckUsername, CheckUpdates, Send, SendMissingRecipient, SendDrawing, SendDrawingMissingRecipient,
   Dashboard, StartCatchup, EndCatchup,
   Save, RemoveSaved, ViewMessage, HoldShare, HoldDrawing, ReleasePending, ReleaseNewItem,
   ReleasedIncoming, AccessibleMessage, Incoming, Sent, Saved, Windows, MessageDetails };

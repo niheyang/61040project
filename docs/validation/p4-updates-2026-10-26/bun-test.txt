@@ -1,0 +1,137 @@
+Started (America/New_York): 2026-10-26T23:00:00-04:00
+Command: bun test
+Base Git commit: 15db648b61bfcf503bea99da29e01f57b53775e2
+Source: uncommitted working tree; see source-manifest.sha256.
+Database tests use isolated catchup-test-UUID databases on local MongoDB.
+
+bun test v1.4.2 (744846f84)
+
+tests/auth.test.ts:
+(pass) registration stores a hash and a new instance authenticates the same identity [460.57ms]
+(pass) concurrent registration cannot create duplicate canonical usernames [153.55ms]
+(pass) registration accepts the username and password length boundaries after username normalization [550.18ms]
+(pass) invalid usernames are refused without adding or changing accounts [306.58ms]
+(pass) passwords outside the allowed lengths are refused without adding or changing accounts [294.34ms]
+(pass) missing accounts and wrong passwords return the same refusal without changing stored accounts [427.12ms]
+
+tests/http.test.ts:
+(pass) Catchup HTTP composition > accounts authenticate and failures cannot mutate someone else's inbox [2156.21ms]
+(pass) Catchup HTTP composition > exact username checks authenticate and reveal only existence without releasing held messages [2744.23ms]
+(pass) Catchup HTTP composition > username checks reject malformed or spoofed input without mutating state [1128.47ms]
+(pass) Catchup HTTP composition > the complete journey holds messages, releases them on demand, and keeps saved content after closing [3820.92ms]
+(pass) Catchup HTTP composition > message and window authorization are checked on the server [1989.80ms]
+(pass) Catchup HTTP composition > two-way conversations keep receiving windows independent and held arrivals invisible [3503.49ms]
+(pass) Catchup HTTP composition > the exact 15-minute deadline stops release before any cleanup timer runs [1552.83ms]
+(pass) Catchup HTTP composition > closing a stale window handle cannot end its replacement [1571.34ms]
+(pass) Catchup HTTP composition > concurrent sending and opening leaves no message stranded while receiving is open [1446.83ms]
+(pass) Catchup HTTP composition > a new application instance reads persisted identities, delivery, and bookmarks [1839.15ms]
+(pass) Catchup HTTP composition > malformed JSON, wrong field types, and spoofed identity fields fail without mutation [1337.43ms]
+
+tests/domain.test.ts:
+(pass) Messaging > preserves one record and selects only the requested participant's records [27.09ms]
+(pass) Messaging > rejects self messages, blank text, and oversized text without adding a message [5.58ms]
+(pass) Holding > release is idempotent, scoped to the recipient, and cannot be undone by enqueue [25.09ms]
+(pass) Holding > concurrent duplicate enqueues and releases produce exactly one entry and transition [19.59ms]
+(pass) Receptivity > expires at the exact deadline even before cleanup and does not expire early [22.12ms]
+(pass) Receptivity > an old close or expiry cannot remove a replacement and another person cannot close it [5.54ms]
+(pass) Receptivity > simultaneous openings leave at most one current window per person [8.87ms]
+(pass) Bookmarking > saves are private, idempotent, persistent, and removable independently [21.93ms]
+
+tests/drawing-domain.test.ts:
+(pass) Messaging drawing content > preserves original multicolor strokes and participants through an exchange and a new concept instance [25.79ms]
+(pass) Messaging drawing content > persisted drawings remain unchanged when caller data or a returned record is edited [4.02ms]
+(pass) Messaging drawing content > repeated sends create distinct immutable messages instead of overwriting or merging a drawing [3.02ms]
+(pass) Messaging drawing content > accepts boundary coordinates, pressure endpoints, and the maximum supported stroke count [2.85ms]
+(pass) Messaging drawing content > accepts a drawing at the point-count limit when the encoded data remains within its byte limit [10.05ms]
+(pass) Messaging drawing content > keeps text and drawing messages compatible in one conversation [8.02ms]
+(pass) Messaging drawing content > refuses a self-addressed drawing without changing an existing conversation [5.46ms]
+(pass) Messaging drawing content > refuses null without mutating existing messages [5.74ms]
+(pass) Messaging drawing content > refuses array instead of drawing without mutating existing messages [5.02ms]
+(pass) Messaging drawing content > refuses empty drawing without mutating existing messages [4.98ms]
+(pass) Messaging drawing content > refuses empty stroke without mutating existing messages [5.26ms]
+(pass) Messaging drawing content > refuses unsupported version without mutating existing messages [5.02ms]
+(pass) Messaging drawing content > refuses wrong dimensions without mutating existing messages [4.82ms]
+(pass) Messaging drawing content > refuses unexpected drawing field without mutating existing messages [5.25ms]
+(pass) Messaging drawing content > refuses unexpected stroke field without mutating existing messages [5.10ms]
+(pass) Messaging drawing content > refuses unsupported ink without mutating existing messages [4.49ms]
+(pass) Messaging drawing content > refuses non-numeric point without mutating existing messages [4.37ms]
+(pass) Messaging drawing content > refuses non-finite coordinate without mutating existing messages [5.06ms]
+(pass) Messaging drawing content > refuses wrong point length without mutating existing messages [4.88ms]
+(pass) Messaging drawing content > refuses negative coordinate without mutating existing messages [4.69ms]
+(pass) Messaging drawing content > refuses coordinate outside canvas without mutating existing messages [4.99ms]
+(pass) Messaging drawing content > refuses decreasing time without mutating existing messages [4.99ms]
+(pass) Messaging drawing content > refuses negative time without mutating existing messages [4.98ms]
+(pass) Messaging drawing content > refuses excessive stroke duration without mutating existing messages [4.74ms]
+(pass) Messaging drawing content > refuses pressure outside range without mutating existing messages [5.05ms]
+(pass) Messaging drawing content > refuses too many strokes without mutating existing messages [4.84ms]
+(pass) Messaging drawing content > refuses too many points without mutating existing messages [4.57ms]
+(pass) Messaging drawing content > refuses too many bytes without mutating existing messages [6.07ms]
+
+tests/search.test.ts:
+(pass) conversation search > matches one letter immediately, ignores case, and preserves conversation order [0.37ms]
+(pass) conversation search > accepts a leading @ for names without removing @ from content searches [0.23ms]
+(pass) conversation search > finds older content and previews the newest matching message even if the name also matches [1.49ms]
+(pass) conversation search > empty queries include empty chats and use a compact latest-message preview [0.08ms]
+(pass) conversation search > centers a compact preview around a distant match and retains long queries in full [0.38ms]
+(pass) conversation search > queries are literal and inputs remain unchanged [0.13ms]
+(pass) conversation search > searches only authorized supplied conversations, never saved-only records [0.21ms]
+(pass) literal match highlighting > splits every nonoverlapping case-insensitive match and preserves original text [0.09ms]
+(pass) literal match highlighting > retains whitespace, literal metacharacters, and HTML as plain text segments [0.08ms]
+(pass) literal match highlighting > uses offsets from the original text even when Unicode lowercasing would change length [0.02ms]
+(pass) literal match highlighting > returns unchanged text for empty, whitespace-only, or unmatched queries [0.03ms]
+(pass) finding a conversation or starting a new chat > a content match does not become the target for a different username [0.07ms]
+(pass) finding a conversation or starting a new chat > Enter looks up an exact username with or without @ despite content matches [0.05ms]
+(pass) finding a conversation or starting a new chat > an exact existing username wins over earlier matching message content [0.03ms]
+
+tests/frontend.test.ts:
+(pass) production frontend serving > serves built HTML, JavaScript, fonts, and equivalent HEAD headers [1.54ms]
+(pass) production frontend serving > falls back for page navigation without substituting HTML for assets or APIs [0.28ms]
+(pass) production frontend serving > rejects malformed and escaping paths and explains a missing build [0.15ms]
+
+tests/drawing.test.ts:
+(pass) drawing format > accepts boundary coordinates, zero/full pressure, a dot, and the stroke-count limit [0.40ms]
+(pass) drawing format > rejects each malformed or excessive drawing class [2.15ms]
+(pass) drawing format > returns a detached drawing without changing the caller's data [0.10ms]
+(pass) drawing format > rejects sparse and non-finite direct-call points, beyond JSON's ordinary inputs [0.05ms]
+(pass) drawing editor serialization > preserves ink, relative timing, pressure, and geometry through display-size round trips [0.25ms]
+(pass) drawing editor serialization > an empty pad or invalid scale cannot become a sendable drawing [0.04ms]
+(pass) drawing conversation previews and search > a drawing has a [Drawing] preview, while only usernames and typed content are searched [0.24ms]
+
+tests/check-updates.test.ts:
+(pass) Holding reports only whether this recipient has pending items, without changing them [37.48ms]
+(pass) opt-in update checks > text and drawings change only the boolean; checking never opens reception or releases content [3723.69ms]
+(pass) opt-in update checks > credentials identify the only recipient that may be checked; malformed or forged input cannot change state [1812.17ms]
+(pass) opt-in update checks > checking at window expiry neither renews the window nor releases a newly held share [1975.39ms]
+
+tests/conversations.test.ts:
+(pass) friend conversation model > combines both directions into one chronological thread with delivery states [0.21ms]
+(pass) friend conversation model > keeps friends separate and orders conversation previews by the latest authorized message [0.10ms]
+(pass) friend conversation model > starts only explicitly chosen empty chats and merges canonical usernames with persisted history [0.09ms]
+(pass) friend conversation model > never creates a conversation or preview from saved-only metadata [0.04ms]
+(pass) friend conversation model > deduplicates messages, breaks equal-time ties consistently, and leaves source arrays unchanged [0.08ms]
+
+tests/drawing-http.test.ts:
+(pass) drawing HTTP journeys > drawings stay hidden alongside released text, then follow opening, arrival, and closing [3043.36ms]
+(pass) drawing HTTP journeys > pending and third-party drawings cannot be fetched or saved through guessed IDs [2356.46ms]
+(pass) drawing HTTP journeys > malformed drawings are refused without changing messages, holding, or any actor's dashboard [1409.97ms]
+(pass) drawing HTTP journeys > wrong credentials, missing recipients, self sends, and spoofed fields cannot create drawings [1962.60ms]
+(pass) drawing HTTP journeys > a drawing at the request-body limit succeeds and one extra byte fails without mutation [1503.11ms]
+(pass) drawing HTTP journeys > drawing bookmarks are private, idempotent, and removable without erasing conversation history [2421.83ms]
+(pass) drawing HTTP journeys > an application restart preserves drawings, timestamps, bookmarks, and pending privacy [2425.12ms]
+(pass) drawing HTTP journeys > drawings stop releasing at the exact deadline before expiry cleanup [1855.84ms]
+(pass) drawing HTTP journeys > concurrent drawing and opening releases each message exactly once [1454.20ms]
+(pass) drawing HTTP journeys > both drawing/close request orders obey the receiving boundary [2336.06ms]
+
+tests/access-control.test.ts:
+(pass) authentication and access-control boundary > every protected endpoint refuses missing credentials, wrong identities, and forged actors without mutation [2232.96ms]
+(pass) authentication and access-control boundary > another account cannot release, read, save, close, or remove a recipient's private data [4128.72ms]
+(pass) authentication and access-control boundary > private API successes and failures explicitly prohibit HTTP caching [1537.05ms]
+(pass) authentication and access-control boundary > internal concept actions and views are not exposed as HTTP routes [416.82ms]
+
+ 100 pass
+ 0 fail
+ 1605 expect() calls
+Ran 100 tests across 11 files. [62.38s]
+
+Exit code: 0
+Elapsed seconds: 62.40

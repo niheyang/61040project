@@ -22,6 +22,8 @@ export function createCatchupHandler(database: Db, clock: () => number = Date.no
       return serialize(async () => {
         const response = await handler(request);
         await application.whenIdle();
+        // API responses can contain private messages, drawings, and identities.
+        response.headers.set("Cache-Control", "no-store");
         return response;
       });
     },

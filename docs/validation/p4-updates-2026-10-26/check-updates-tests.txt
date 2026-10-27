@@ -1,0 +1,27 @@
+Started (America/New_York): 2026-10-26T22:59:44-04:00
+Command: bun test tests/check-updates.test.ts tests/access-control.test.ts
+Base Git commit: 15db648b61bfcf503bea99da29e01f57b53775e2
+Source: uncommitted working tree; see source-manifest.sha256.
+Database tests use isolated catchup-test-UUID databases on local MongoDB.
+
+bun test v1.4.2 (744846f84)
+
+tests/check-updates.test.ts:
+(pass) Holding reports only whether this recipient has pending items, without changing them [78.10ms]
+(pass) opt-in update checks > text and drawings change only the boolean; checking never opens reception or releases content [3833.55ms]
+(pass) opt-in update checks > credentials identify the only recipient that may be checked; malformed or forged input cannot change state [1811.04ms]
+(pass) opt-in update checks > checking at window expiry neither renews the window nor releases a newly held share [1966.36ms]
+
+tests/access-control.test.ts:
+(pass) authentication and access-control boundary > every protected endpoint refuses missing credentials, wrong identities, and forged actors without mutation [2223.22ms]
+(pass) authentication and access-control boundary > another account cannot release, read, save, close, or remove a recipient's private data [4166.33ms]
+(pass) authentication and access-control boundary > private API successes and failures explicitly prohibit HTTP caching [1547.25ms]
+(pass) authentication and access-control boundary > internal concept actions and views are not exposed as HTTP routes [435.29ms]
+
+ 8 pass
+ 0 fail
+ 363 expect() calls
+Ran 8 tests across 2 files. [16.20s]
+
+Exit code: 0
+Elapsed seconds: 16.22

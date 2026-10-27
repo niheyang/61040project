@@ -31,6 +31,8 @@ const loadingDashboard = ref(false);
 const error = ref("");
 const notice = ref("");
 const updatesError = ref("");
+const checkingUpdates = ref(false);
+const updatesStatus = ref("");
 const now = ref(Date.now());
 const threadScroll = ref<HTMLElement | null>(null);
 const messageInput = ref<HTMLTextAreaElement | null>(null);
@@ -41,8 +43,11 @@ let dashboardRequests = 0;
 let usernameLookupVersion = 0;
 let pollTimer: ReturnType<typeof setInterval> | undefined;
 let clockTimer: ReturnType<typeof setInterval> | undefined;
+let updatesStatusTimer: ReturnType<typeof setTimeout> | undefined;
+let updatesCheckVersion = 0;
 
 const currentWindow = computed(() => dashboard.value.windows.find((window) => new Date(window.expiresAt).getTime() > now.value));
+watch(() => currentWindow.value?.window, clearUpdatesCheck);
 const savedIds = computed(() => new Set(dashboard.value.saved.map((message) => message.message)));
 // The server's dashboard already excludes held incoming messages. Building
 // chats from these rows cannot reveal another friend's pending share.
@@ -113,6 +118,39 @@ async function selectConversation(username: string, matchingMessage?: string) {
 function cancelUsernameCheck() {
   usernameLookupVersion += 1;
   checkingUsername.value = false;
+}
+
+function clearUpdatesCheck() {
+  updatesCheckVersion += 1;
+  clearTimeout(updatesStatusTimer);
+  updatesStatusTimer = undefined;
+  checkingUpdates.value = false;
+  updatesStatus.value = "";
+}
+
+async function checkForUpdates() {
+  if (!credentials.value || currentWindow.value || busy.value || checkingUpdates.value) return;
+  clearUpdatesCheck();
+  checkingUpdates.value = true;
+  const requestedSession = sessionVersion;
+  const requestedCheck = updatesCheckVersion;
+  const isCurrent = () => requestedSession === sessionVersion && requestedCheck === updatesCheckVersion;
+  try {
+    const result = await api.catchup.checkUpdates({ ...credentials.value }, { timeoutMs: 10000 });
+    if (!isCurrent()) return;
+    updatesStatus.value = "error" in result ? describeError(result)
+      : result.waiting ? "New messages are waiting." : "Nothing new yet.";
+  } catch {
+    if (isCurrent()) updatesStatus.value = "Couldn't check for updates. Please try again.";
+  } finally {
+    if (isCurrent()) {
+      checkingUpdates.value = false;
+      // This is a temporary answer to a click, not a continuously updated badge.
+      updatesStatusTimer = setTimeout(() => {
+        if (isCurrent()) clearUpdatesCheck();
+      }, 8000);
+    }
+  }
 }
 
 async function openChatSearch() {
@@ -188,6 +226,7 @@ function resetDashboard() {
 }
 
 function signOut() {
+  clearUpdatesCheck();
   cancelUsernameCheck();
   sessionVersion += 1;
   dashboardVersion += 1;
@@ -242,7 +281,7 @@ async function authenticate() {
   error.value = "";
   busy.value = true;
   const input = { username: authUsername.value.trim(), password: authPassword.value };
-  const requestedSession = sessionVersion;
+  let requestedSession = sessionVersion;
   try {
     const result = authMode.value === "register"
       ? await api.catchup.register(input, { timeoutMs: 10000 })
@@ -252,13 +291,14 @@ async function authenticate() {
       error.value = describeError(result);
       return;
     }
-    sessionVersion += 1;
+    requestedSession = ++sessionVersion;
     credentials.value = { ...input, username: result.username };
     authPassword.value = "";
     notice.value = authMode.value === "register" ? "Account created. Start a chat with a friend's username." : "";
     await refreshDashboard();
   } finally {
-    busy.value = false;
+    // A sign-out and later sign-in may finish before this dashboard request.
+    if (requestedSession === sessionVersion) busy.value = false;
   }
 }
 
@@ -319,6 +359,7 @@ function onComposerKeydown(event: KeyboardEvent) {
 }
 
 async function startCatchup() {
+  clearUpdatesCheck();
   await perform((auth) => api.catchup.startCatchup(auth, { timeoutMs: 10000 }), "Your 15-minute window is open for all friends.");
 }
 
@@ -349,6 +390,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  clearUpdatesCheck();
   cancelUsernameCheck();
   clearInterval(clockTimer);
   clearInterval(pollTimer);
@@ -358,11 +400,11 @@ onUnmounted(() => {
 <template>
   <div class="app-shell">
     <header class="site-header">
-      <CatchupTimer v-if="credentials" :window="currentWindow" :now="now" :busy="busy" @start="startCatchup" @end="endCatchup" />
+      <CatchupTimer v-if="credentials" :window="currentWindow" :now="now" :busy="busy" :checking-updates="checkingUpdates" :updates-status="updatesStatus" @start="startCatchup" @end="endCatchup" @check="checkForUpdates" />
       <div class="header-actions">
         <div v-if="credentials" class="account-controls">
           <span class="signed-in-user">@{{ credentials.username }}</span>
-          <button class="quiet-button" :disabled="busy" @click="signOut">Sign out</button>
+          <button class="quiet-button" @click="signOut">Sign out</button>
         </div>
         <button class="theme-toggle" type="button"
           :aria-label="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"

@@ -1,0 +1,28 @@
+Started (America/New_York): 2026-10-26T23:01:02-04:00
+Command: bun run build
+Base Git commit: 15db648b61bfcf503bea99da29e01f57b53775e2
+Source: uncommitted working tree; see source-manifest.sha256.
+Database tests use isolated catchup-test-UUID databases on local MongoDB.
+
+$ vite build --config web/vite.config.ts
+vite v8.3.4 building client environment for production...
+transforming...
+[plugin rolldown:vite-resolve] Module "node:crypto" has been externalized for browser compatibility, imported by "/Users/heyangni/Desktop/6.1040/61040project/node_modules/@mit-sdg/sync-engine/dist/engine/utils/runtime.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin rolldown:vite-resolve] Module "node:util" has been externalized for browser compatibility, imported by "/Users/heyangni/Desktop/6.1040/61040project/node_modules/@mit-sdg/sync-engine/dist/engine/utils/runtime.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin rolldown:vite-resolve] Module "node:crypto" has been externalized for browser compatibility, imported by "/Users/heyangni/Desktop/6.1040/61040project/node_modules/@mit-sdg/sync-engine/dist/engine/reactions/concepts/concept-spec.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+✓ 214 modules transformed.
+rendering chunks...
+computing gzip size...
+web/dist/index.html                                                    1.22 kB │ gzip:  0.61 kB
+web/dist/assets/nunito-sans-vietnamese-wght-normal-BhFYcaJr.woff2     10.30 kB
+web/dist/assets/nunito-sans-cyrillic-wght-normal-B9hoeQUC.woff2       16.38 kB
+web/dist/assets/nunito-sans-cyrillic-ext-wght-normal-7w74d1lj.woff2   21.75 kB
+web/dist/assets/nunito-sans-latin-ext-wght-normal-DMEAsnHD.woff2      27.90 kB
+web/dist/assets/nunito-sans-latin-wght-normal-BWQ3gi2K.woff2          31.07 kB
+web/dist/assets/index-BHPKrU7J.css                                    20.24 kB │ gzip:  5.11 kB
+web/dist/assets/index-DMDgCBgb.js                                    120.19 kB │ gzip: 42.97 kB
+
+✓ built in 358ms
+
+Exit code: 0
+Elapsed seconds: 0.78

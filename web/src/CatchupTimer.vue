@@ -6,11 +6,14 @@ const props = withDefaults(defineProps<{
   window?: WindowRow;
   now: number;
   busy?: boolean;
-}>(), { busy: false });
+  checkingUpdates?: boolean;
+  updatesStatus?: string;
+}>(), { busy: false, checkingUpdates: false, updatesStatus: "" });
 
 const emit = defineEmits<{
   start: [];
   end: [];
+  check: [];
 }>();
 
 const durationSeconds = 15 * 60;
@@ -56,10 +59,16 @@ const progressOffset = computed(() => 100 * (1 - remainingSeconds.value / durati
     <div class="timer-copy">
       <h2 id="catchup-timer-title">{{ window ? 'Catching up' : 'Not receiving' }}</h2>
       <p>{{ window ? 'Receiving new messages across all chats.' : 'New messages stay hidden until you start.' }}</p>
+      <p v-if="!window" class="updates-status" role="status" aria-live="polite" aria-atomic="true">{{ updatesStatus }}</p>
     </div>
 
-    <button v-if="window" class="quiet-button timer-action" type="button" :disabled="busy" @click="emit('end')">End catch-up</button>
-    <button v-else class="primary-button timer-action" type="button" :disabled="busy" @click="emit('start')">Catch up now</button>
+    <div class="timer-actions">
+      <button v-if="window" class="quiet-button timer-action" type="button" :disabled="busy" @click="emit('end')">End catch-up</button>
+      <template v-else>
+        <button class="primary-button timer-action" type="button" :disabled="busy" @click="emit('start')">Catch up now</button>
+        <button class="quiet-button timer-check" type="button" :disabled="busy || checkingUpdates" @click="emit('check')">{{ checkingUpdates ? 'Checking…' : 'Check for updates' }}</button>
+      </template>
+    </div>
   </section>
 </template>
 
@@ -115,7 +124,11 @@ const progressOffset = computed(() => 100 * (1 - remainingSeconds.value / durati
 .timer-dial-active .timer-value strong { color: var(--accent); }
 .timer-copy h2 { font-size: 20px; letter-spacing: -.35px; }
 .timer-copy p { margin-top: 5px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.timer-copy .updates-status { margin-top: 0; font-size: 13px; }
+.timer-copy .updates-status:not(:empty) { margin-top: 5px; }
+.timer-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .timer-action { white-space: nowrap; }
+.timer-check { min-height: 32px; padding: 4px 0; font-size: 13px; }
 .quiet-button.timer-action { min-height: 44px; padding: 8px 0; }
 
 @media (max-width: 580px) {
@@ -130,6 +143,6 @@ const progressOffset = computed(() => 100 * (1 - remainingSeconds.value / durati
   .timer-value strong { font-size: 22px; }
   .timer-value span { font-size: 10px; }
   .timer-copy h2 { font-size: 18px; }
-  .timer-action { grid-column: 2; justify-self: start; }
+  .timer-actions { grid-column: 2; justify-self: start; }
 }
 </style>

@@ -54,6 +54,14 @@ export class Holding {
       .sort({ item: 1 }).toArray();
   }
 
+  async _hasPending(input: { recipient: string }): Promise<{ waiting: boolean }> {
+    const entry = await this.entries.findOne(
+      { recipient: input.recipient, status: "PENDING" },
+      { projection: { _id: 1 } },
+    );
+    return { waiting: entry !== null };
+  }
+
   async _released(input: { recipient: string }): Promise<{ item: string }[]> {
     return this.entries.find({ ...input, status: "RELEASED" }, { projection: { _id: 0, item: 1 } })
       .sort({ item: 1 }).toArray();

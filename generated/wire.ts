@@ -13,6 +13,16 @@ export type Json = null | boolean | number | string | Json[] | { [key: string]: 
 export type AppWideError = never;
 
 export type CatchupWire = {
+  "/catchup/checkUpdates": {
+    input: {
+      "password": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["password"]>>;
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["username"]>>;
+    };
+    output: {
+      "waiting": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Holding"]["_hasPending"]>>>, ["waiting"]>>;
+    };
+    error: { error: AppWideError | "INVALID_CREDENTIALS" | "INVALID_INPUT" };
+  };
   "/catchup/checkUsername": {
     input: {
       "password": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["password"]>>;
@@ -188,6 +198,16 @@ export type CatchupWire = {
 export type HttpAppWideError = never;
 
 export type CatchupWireHttp = {
+  "/catchup/checkUpdates": {
+    input: {
+      "password": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["password"]>>;
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["username"]>>;
+    };
+    output: {
+      "waiting": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Holding"]["_hasPending"]>>>, ["waiting"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
   "/catchup/checkUsername": {
     input: {
       "password": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["PasswordAuthenticating"]["authenticate"]>[0], ["password"]>>;

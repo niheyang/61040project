@@ -57,6 +57,8 @@ release(recipient: Recipient, items: ItemBatch) : returns (released: ItemBatch)
 ```queries
 _pending(recipient: Recipient) : many (item: Item)
   Returns this recipient's pending item identities in identity order, or no rows when there are none.
+_hasPending(recipient: Recipient) : one (waiting: Flag)
+  Returns true exactly when this recipient has at least one PENDING entry, without returning item identities or a count or changing any state.
 _released(recipient: Recipient) : many (item: Item)
   Returns this recipient's released item identities in identity order, or no rows when there are none.
 _status(recipient: Recipient, item: Item) : one (status: Status)
