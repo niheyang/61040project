@@ -2,7 +2,7 @@
 
 Catchup lets friends exchange non-urgent text messages, links, and handwritten drawings. Recipients choose when new messages appear by opening a 15-minute catch-up window; previously released conversations remain accessible afterward.
 
-[Live app](https://catch-up.mit-sdg.dev/) · [P4 narrated demo](https://youtu.be/12tqeZzXxic)
+[Live app](https://catch-up.mit-sdg.dev/) · [P4 narrated demo](https://youtu.be/nKRSSQqc4Zk)
 
 Built with **Vue**, **Bun**, **sync-engine**, and **MongoDB** for MIT 6.1040.
 
