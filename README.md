@@ -10,6 +10,7 @@ Built with **Vue**, **Bun**, **sync-engine**, and **MongoDB** for MIT 6.1040.
 
 - [User journey](user_journey.md)
 - [P4 design summary and changes since P1](design_summary.md)
+- P5 user testing: [tasks and session setup](user-testing-tasks.md), [father's report](study-report-father.md), [mother's report](study-report-mother.md), and [design findings](design-findings.md)
 - [Current concept specifications](design/concepts/), [types](design/types.md), and [application reactions](design/compositions/Catchup.md)
 - [Automated validation and saved test output](docs/validation/README.md)
 - [Visual design study](visual_design_study.pptx)
